@@ -13,18 +13,23 @@ class ContentManager {
         
         // 当页面中有文本被选中时，发送消息到sidebar
         document.addEventListener('mouseup', () => {
+            // 增加小延迟确保选择完成
             setTimeout(() => {
                 const selectedText = window.getSelection().toString().trim();
                 if (selectedText) {
+                    // 添加调试信息
+                    console.log('Detected selected text:', selectedText);
+                    
+                    // 发送消息到sidebar
                     chrome.runtime.sendMessage({
                         action: "displayText",
                         text: selectedText
                     }).catch(err => {
-                        // 忽略发送消息时的错误，因为sidebar可能未打开
-                        console.debug('发送选中文本消息失败:', err);
+                        // 记录错误但不中断
+                        console.error('Failed to send selected text to sidebar:', err);
                     });
                 }
-            }, 100);
+            }, 50); // 50ms延迟确保选择完成
         });
     }
 

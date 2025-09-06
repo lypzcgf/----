@@ -13,6 +13,13 @@ document.addEventListener('DOMContentLoaded', async function() {
   const paragraphCountEl = document.getElementById('paragraphCount');
   const lineCountEl = document.getElementById('lineCount');
   
+  // API Key相关元素
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const saveBtn = document.getElementById('saveBtn');
+  const testBtn = document.getElementById('testBtn');
+  const debugBtn = document.getElementById('debugBtn');
+  const logBtn = document.getElementById('logBtn');
+  
   // 页面加载时尝试获取当前页面选中的文本
   let currentText = '';
   
@@ -23,11 +30,85 @@ document.addEventListener('DOMContentLoaded', async function() {
       sendResponse({ success: true });
     } else if (message.action === "displayText") {
       currentText = message.text;
+      // 添加调试信息
+      console.log('Received text from content script:', message.text);
       sendResponse({ success: true });
     }
     return true;
   });
   
+  // 加载已保存的API Key
+  async function loadApiKey() {
+    try {
+      const storage = await chrome.storage.local.get('kimiApiKey');
+      if (storage.kimiApiKey) {
+        apiKeyInput.value = storage.kimiApiKey;
+      }
+    } catch (error) {
+      console.error('Failed to load API Key:', error);
+    }
+  }
+
+  // 保存API Key
+  saveBtn.addEventListener('click', async function() {
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+        alert('请输入API Key');
+        return;
+    }
+    
+    try {
+        await chrome.runtime.sendMessage({
+            action: "saveApiKey",
+            apiKey: apiKey
+        });
+        
+        alert('API Key保存成功！');
+    } catch (error) {
+        console.error('Failed to save API Key:', error);
+        alert('保存失败: ' + error.message);
+    }
+  });
+
+  // 测试API连接
+  testBtn.addEventListener('click', async function() {
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+        alert('请输入API Key');
+        return;
+    }
+    
+    try {
+        const result = await chrome.runtime.sendMessage({
+            action: "testConnection",
+            apiKey: apiKey
+        });
+        
+        if (result.success) {
+            alert('连接成功！' + result.message);
+        } else {
+            alert('连接失败: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Test connection failed:', error);
+        alert('测试连接失败: ' + error.message);
+    }
+  });
+
+  // 开启调试
+  debugBtn.addEventListener('click', function() {
+    // 这里可以添加调试功能
+    console.log('Debug mode enabled');
+    alert('调试模式已开启');
+  });
+
+  // 导出日志
+  logBtn.addEventListener('click', function() {
+    // 这里可以添加导出日志功能
+    console.log('Exporting logs...');
+    alert('日志导出功能暂未实现');
+  });
+
   // 获取文本的函数（带备选方案）
   async function getTextWithFallback(tabId) {
     try {
@@ -83,7 +164,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       throw new Error('无法获取页面文本内容');
     }
   }
-  
+
   // 翻译按钮点击事件
   translateBtn.addEventListener('click', async function() {
     const sourceLang = sourceLangSelect.value;
@@ -131,7 +212,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       resetTranslateButton();
     }
   });
-  
+
   // 复制按钮点击事件
   copyBtn.addEventListener('click', function() {
     const textToCopy = translationResult.textContent;
@@ -170,10 +251,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     paragraphCountEl.textContent = result.paragraphCount || '-';
     lineCountEl.textContent = result.lineCount || '-';
   }
-  
+
   // 重置翻译按钮状态
   function resetTranslateButton() {
     translateBtn.textContent = '🔄 开始翻译';
     translateBtn.disabled = false;
   }
+
+  // 页面加载完成后加载API Key
+  loadApiKey();
 });

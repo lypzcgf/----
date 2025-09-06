@@ -1,80 +1,187 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-  <meta charset="UTF-8">
-  <link rel="stylesheet" href="sidebar.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能翻译助手</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-info {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .result-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            min-height: 100px;
+        }
+        .stats {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .stats-item {
+            margin-bottom: 5px;
+        }
+        .api-config {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .api-key-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        .api-key-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .api-key-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .api-key-actions button {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+        .debug-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        .log-btn {
+            background-color: #17a2b8;
+            color: white;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>🌐 智能翻译助手</h1>
-    </header>
-    
-    <div class="language-section">
-      <label class="section-label">📝 源语言选择</label>
-      <select id="sourceLang" class="language-select">
-        <option value="zh" selected>中文(简体)</option>
-        <option value="auto">自动检测</option>
-        <option value="zh-TW">中文(繁体)</option>
-        <option value="en">English</option>
-        <option value="es">Español</option>
-      </select>
+    <div class="container">
+        <h1>智能翻译助手</h1>
+        
+        <!-- API Key 配置区域 -->
+        <div class="api-config">
+            <div class="api-key-label">
+                <span style="color: #ffc107;">🔑</span> Kimi API Key
+            </div>
+            <input type="password" id="apiKeyInput" class="api-key-input" placeholder="请输入您的Kimi API Key">
+            <div class="api-key-actions">
+                <button id="saveBtn" class="btn-primary">保存</button>
+                <button id="testBtn" class="btn-success">测试连接</button>
+                <button id="debugBtn" class="btn-secondary debug-btn">开启调试</button>
+                <button id="logBtn" class="btn-info log-btn">导出日志</button>
+            </div>
+        </div>
+
+        <!-- 翻译设置区域 -->
+        <div class="section">
+            <h2>翻译设置</h2>
+            <div class="form-group">
+                <label for="sourceLang">源语言:</label>
+                <select id="sourceLang">
+                    <option value="auto">自动检测</option>
+                    <option value="zh">中文</option>
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="targetLang">目标语言:</label>
+                <select id="targetLang">
+                    <option value="en">English</option>
+                    <option value="zh">中文</option>
+                    <option value="es">Español</option>
+                </select>
+            </div>
+            <button id="translateBtn" class="btn-primary">🔄 开始翻译</button>
+            <button id="copyBtn" class="btn-secondary">📋 复制</button>
+        </div>
+
+        <!-- 翻译结果区域 -->
+        <div class="section">
+            <h2>翻译结果</h2>
+            <div class="result-container">
+                <div id="translationResult">点击“开始翻译”按钮来翻译选中的文本</div>
+            </div>
+            <div class="stats">
+                <div class="stats-item">翻译时间: <span id="translationTime">-</span></div>
+                <div class="stats-item">字符数: <span id="charCount">-</span></div>
+                <div class="stats-item">单词数: <span id="wordCount">-</span></div>
+                <div class="stats-item">段落数: <span id="paragraphCount">-</span></div>
+                <div class="stats-item">行数: <span id="lineCount">-</span></div>
+            </div>
+        </div>
     </div>
-    
-    <div class="language-section">
-      <label class="section-label">🎯 目标语言选择</label>
-      <select id="targetLang" class="language-select">
-        <option value="en" selected>English</option>
-        <option value="zh">中文(简体)</option>
-        <option value="zh-TW">中文(繁体)</option>
-        <option value="es">Español</option>
-        <option value="auto">自动检测</option>
-      </select>
-    </div>
-    
-    <button id="translateBtn" class="translate-button">
-      🔄 开始翻译
-    </button>
-    
-    <div class="divider"></div>
-    
-    <div class="stats-section">
-      <h2>📊 翻译统计</h2>
-      <div class="stats-grid">
-        <div class="stat-item">
-          <span class="stat-label">⏱️ 翻译时间:</span>
-          <span id="translationTime" class="stat-value">-</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">🔤 字符数:</span>
-          <span id="charCount" class="stat-value">-</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">📝 单词数:</span>
-          <span id="wordCount" class="stat-value">-</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">📄 段落数:</span>
-          <span id="paragraphCount" class="stat-value">-</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">📏 行数:</span>
-          <span id="lineCount" class="stat-value">-</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="divider"></div>
-    
-    <div class="result-section">
-      <h2>📋 翻译结果</h2>
-      <div id="translationResult" class="result-textarea"></div>
-      <button id="copyBtn" class="copy-button">
-        📋 复制结果
-      </button>
-    </div>
-  </div>
-  
-  <script src="sidebar.js"></script>
+
+    <script src="sidebar.js"></script>
 </body>
 </html>
