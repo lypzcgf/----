@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="sidebar.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🌐 智能翻译助手</h1>
+    </header>
+    
+    <div class="language-section">
+      <label class="section-label">📝 源语言选择</label>
+      <select id="sourceLang" class="language-select">
+        <option value="zh" selected>中文(简体)</option>
+        <option value="auto">自动检测</option>
+        <option value="zh-TW">中文(繁体)</option>
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+    </div>
+    
+    <div class="language-section">
+      <label class="section-label">🎯 目标语言选择</label>
+      <select id="targetLang" class="language-select">
+        <option value="en" selected>English</option>
+        <option value="zh">中文(简体)</option>
+        <option value="zh-TW">中文(繁体)</option>
+        <option value="es">Español</option>
+        <option value="auto">自动检测</option>
+      </select>
+    </div>
+    
+    <button id="translateBtn" class="translate-button">
+      🔄 开始翻译
+    </button>
+    
+    <div class="divider"></div>
+    
+    <div class="stats-section">
+      <h2>📊 翻译统计</h2>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">⏱️ 翻译时间:</span>
+          <span id="translationTime" class="stat-value">-</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">🔤 字符数:</span>
+          <span id="charCount" class="stat-value">-</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">📝 单词数:</span>
+          <span id="wordCount" class="stat-value">-</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">📄 段落数:</span>
+          <span id="paragraphCount" class="stat-value">-</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">📏 行数:</span>
+          <span id="lineCount" class="stat-value">-</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <div class="result-section">
+      <h2>📋 翻译结果</h2>
+      <div id="translationResult" class="result-textarea"></div>
+      <button id="copyBtn" class="copy-button">
+        📋 复制结果
+      </button>
+    </div>
+  </div>
+  
+  <script src="sidebar.js"></script>
+</body>
+</html>
