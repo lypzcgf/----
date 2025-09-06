@@ -29,8 +29,10 @@ class BackgroundManager {
                 this.saveApiKey(request.apiKey);
                 sendResponse({ success: true });
             } else if (request.action === "testConnection") {
-                this.testConnection(request.apiKey);
-                sendResponse({ success: true });
+                this.testConnection(request.apiKey)
+                    .then(result => sendResponse(result))
+                    .catch(error => sendResponse({ success: false, message: error.message }));
+                return true; // 保持异步消息通道开放
             }
             return true;
         });
@@ -60,9 +62,10 @@ class BackgroundManager {
                     messages: [
                         {
                             role: 'user',
-                            content: 'Hello, how are you?'
+                            content: 'Hello'
                         }
-                    ]
+                    ],
+                    max_tokens: 1
                 })
             });
 
@@ -101,7 +104,7 @@ class BackgroundManager {
                 throw new Error('API Key未配置，请在侧边栏中设置Kimi API Key');
             }
             
-            const result = await this.performTranslation(
+            const result = await this.performTranslationWithRetry(
                 request.text, 
                 request.sourceLang, 
                 request.targetLang,
@@ -130,6 +133,29 @@ class BackgroundManager {
             });
             
             sendResponse({ success: false, error: error.message });
+        }
+    }
+
+    // 带重试机制的翻译功能
+    async performTranslationWithRetry(text, sourceLang, targetLang, apiKey, retryCount = 0) {
+        const maxRetries = 3;
+        const baseDelay = 1000; // 基础延迟1秒
+        
+        try {
+            return await this.performTranslation(text, sourceLang, targetLang, apiKey);
+        } catch (error) {
+            // 如果是429错误且还有重试次数，则进行重试
+            if (error.message.includes('429') && retryCount < maxRetries) {
+                const delay = baseDelay * Math.pow(2, retryCount); // 指数退避
+                console.log(`遇到429错误，${delay}ms后进行第${retryCount + 1}次重试`);
+                
+                // 等待指定时间后重试
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return this.performTranslationWithRetry(text, sourceLang, targetLang, apiKey, retryCount + 1);
+            }
+            
+            // 其他错误或重试次数已用完，直接抛出错误
+            throw error;
         }
     }
 

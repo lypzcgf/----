@@ -206,7 +206,14 @@ document.addEventListener('DOMContentLoaded', async function() {
       }
     } catch (error) {
       console.error('Translation error:', error);
-      translationResult.textContent = `翻译失败: ${error.message || '未知错误'}`;
+      
+      // 对429错误提供更友好的提示
+      let errorMessage = error.message || '未知错误';
+      if (errorMessage.includes('429')) {
+        errorMessage = '请求过于频繁，请稍后再试（API速率限制）';
+      }
+      
+      translationResult.textContent = `翻译失败: ${errorMessage}`;
       resetTranslateButton();
     }
   });
@@ -235,7 +242,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     resetTranslateButton();
     
     if (result.error) {
-      translationResult.textContent = `翻译失败: ${result.error}`;
+      // 对429错误提供更友好的提示
+      let errorMessage = result.error;
+      if (errorMessage.includes('429')) {
+        errorMessage = '请求过于频繁，请稍后再试（API速率限制）';
+      }
+      translationResult.textContent = `翻译失败: ${errorMessage}`;
       return;
     }
     
