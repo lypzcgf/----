@@ -170,18 +170,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     const sourceLang = sourceLangSelect.value;
     const targetLang = targetLangSelect.value;
     
-    // 如果没有当前文本，则获取整个页面的文本
-    if (!currentText || !currentText.trim()) {
-      try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        
-        // 获取文本
-        currentText = await getTextWithFallback(tab.id);
-      } catch (error) {
-        console.error('Error getting page text:', error);
-        translationResult.textContent = error.message || '获取页面内容失败';
-        return;
-      }
+    // 每次点击翻译按钮时都重新获取当前选中的文本
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      // 获取文本
+      currentText = await getTextWithFallback(tab.id);
+    } catch (error) {
+      console.error('Error getting page text:', error);
+      translationResult.textContent = error.message || '获取页面内容失败';
+      return;
     }
     
     if (!currentText.trim()) {

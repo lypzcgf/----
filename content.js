@@ -11,11 +11,14 @@ class ContentManager {
             return true; // 保持消息通道开放
         });
         
-        // 当页面中有文本被选中时，发送消息到sidebar
-        document.addEventListener('mouseup', () => {
+        // 使用selectionchange事件监听文本选择变化
+        document.addEventListener('selectionchange', () => {
             // 增加小延迟确保选择完成
             setTimeout(() => {
-                const selectedText = window.getSelection().toString().trim();
+                const selection = window.getSelection();
+                const selectedText = selection.toString().trim();
+                
+                // 只有当选中文本且长度大于0时才发送消息
                 if (selectedText) {
                     // 添加调试信息
                     console.log('Detected selected text:', selectedText);
@@ -29,7 +32,7 @@ class ContentManager {
                         console.error('Failed to send selected text to sidebar:', err);
                     });
                 }
-            }, 50); // 50ms延迟确保选择完成
+            }, 50); // 50ms延迟确保选择操作完成
         });
     }
 
