@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   const testBtn = document.getElementById('testBtn');
   const debugBtn = document.getElementById('debugBtn');
   const logBtn = document.getElementById('logBtn');
+  // 新增：复制原文按钮
+  const copyOriginalBtn = document.getElementById('copyOriginalBtn');
   
   // 页面加载时尝试获取当前页面选中的文本
   let currentText = '';
@@ -244,6 +246,23 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   });
   
+  // 新增：复制原文按钮点击事件
+  copyOriginalBtn.addEventListener('click', function() {
+    const textToCopy = originalText.textContent;
+    if (textToCopy && textToCopy !== '点击“开始翻译”按钮来查看选中的文本') {
+      navigator.clipboard.writeText(textToCopy)
+        .then(() => {
+          const originalText = copyOriginalBtn.textContent;
+          copyOriginalBtn.textContent = '✅ 已复制';
+          setTimeout(() => {
+            copyOriginalBtn.textContent = originalText;
+          }, 2000);
+        })
+        .catch(err => {
+          console.error('复制失败:', err);
+        });
+    }
+  });
   
   // 显示翻译结果
   function displayTranslationResult(result) {

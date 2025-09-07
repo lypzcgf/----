@@ -163,7 +163,6 @@
                 </select>
             </div>
             <button id="translateBtn" class="btn-primary">🔄 开始翻译</button>
-            <button id="copyBtn" class="btn-secondary">📋 复制</button>
         </div>
 
         <!-- 网页原文区域 -->
@@ -172,6 +171,9 @@
             <div class="result-container">
                 <div id="originalText">点击“开始翻译”按钮来查看选中的文本</div>
             </div>
+            <div style="margin-top: 15px;">
+                <button id="copyOriginalBtn" class="btn-secondary">📋 复制原文</button>
+            </div>
         </div>
 
         <!-- 翻译结果区域 -->
@@ -179,6 +181,9 @@
             <h2>翻译结果</h2>
             <div class="result-container">
                 <div id="translationResult">点击“开始翻译”按钮来翻译选中的文本</div>
+            </div>
+            <div style="margin-top: 15px;">
+                <button id="copyBtn" class="btn-secondary">📋 复制译文</button>
             </div>
             <div class="stats">
                 <div class="stats-item">翻译时间: <span id="translationTime">-</span></div>
