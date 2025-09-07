@@ -122,6 +122,9 @@
             background-color: #17a2b8;
             color: white;
         }
+        .custom-model-input {
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -137,13 +140,7 @@
                     <option value="kimi">Kimi</option>
                     <option value="deepseek">DeepSeek</option>
                     <option value="qwen">Qwen</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="modelVersionSelect">模型版本:</label>
-                <select id="modelVersionSelect">
-                    <!-- 选项将通过JavaScript动态填充 -->
+                    <option value="doubao">Doubao</option>
                 </select>
             </div>
             
@@ -153,6 +150,14 @@
                     <span style="color: #ffc107;">🔑</span> Kimi API Key
                 </div>
                 <input type="password" id="apiKeyInput" class="api-key-input" placeholder="请输入您的Kimi API Key">
+                <div class="custom-model-input">
+                    <label for="kimiBaseUrl">Kimi Base URL:</label>
+                    <input type="text" id="kimiBaseUrl" class="api-key-input" placeholder="例如: https://api.moonshot.cn/v1" value="https://api.moonshot.cn/v1">
+                </div>
+                <div class="custom-model-input">
+                    <label for="kimiModelEndpoint">Kimi 模型端点:</label>
+                    <input type="text" id="kimiModelEndpoint" class="api-key-input" placeholder="例如: moonshot-v1-8k" value="moonshot-v1-8k">
+                </div>
                 <div class="api-key-actions">
                     <button id="saveBtn" class="btn-primary">保存</button>
                     <button id="testBtn" class="btn-success">测试连接</button>
@@ -167,6 +172,14 @@
                     <span style="color: #ffc107;">🔑</span> DeepSeek API Key
                 </div>
                 <input type="password" id="deepseekApiKeyInput" class="api-key-input" placeholder="请输入您的DeepSeek API Key">
+                <div class="custom-model-input">
+                    <label for="deepseekBaseUrl">DeepSeek Base URL:</label>
+                    <input type="text" id="deepseekBaseUrl" class="api-key-input" placeholder="例如: https://api.deepseek.com/v1" value="https://api.deepseek.com/v1">
+                </div>
+                <div class="custom-model-input">
+                    <label for="deepseekModelEndpoint">DeepSeek 模型端点:</label>
+                    <input type="text" id="deepseekModelEndpoint" class="api-key-input" placeholder="例如: deepseek-chat" value="deepseek-chat">
+                </div>
                 <div class="api-key-actions">
                     <button id="saveDeepseekBtn" class="btn-primary">保存</button>
                     <button id="testDeepseekBtn" class="btn-success">测试连接</button>
@@ -179,9 +192,37 @@
                     <span style="color: #ffc107;">🔑</span> Qwen API Key
                 </div>
                 <input type="password" id="qwenApiKeyInput" class="api-key-input" placeholder="请输入您的Qwen API Key">
+                <div class="custom-model-input">
+                    <label for="qwenBaseUrl">Qwen Base URL:</label>
+                    <input type="text" id="qwenBaseUrl" class="api-key-input" placeholder="例如: https://dashscope.aliyuncs.com/compatible-mode/v1" value="https://dashscope.aliyuncs.com/compatible-mode/v1">
+                </div>
+                <div class="custom-model-input">
+                    <label for="qwenModelEndpoint">Qwen 模型端点:</label>
+                    <input type="text" id="qwenModelEndpoint" class="api-key-input" placeholder="例如: qwen-turbo" value="qwen-turbo">
+                </div>
                 <div class="api-key-actions">
                     <button id="saveQwenBtn" class="btn-primary">保存</button>
                     <button id="testQwenBtn" class="btn-success">测试连接</button>
+                </div>
+            </div>
+            
+            <!-- Doubao API Key 配置 -->
+            <div id="doubaoApiKeySection" class="api-config" style="display: none;">
+                <div class="api-key-label">
+                    <span style="color: #ffc107;">🔑</span> Doubao API Key
+                </div>
+                <input type="password" id="doubaoApiKeyInput" class="api-key-input" placeholder="请输入您的Doubao API Key">
+                <div class="custom-model-input">
+                    <label for="doubaoBaseUrl">Doubao Base URL:</label>
+                    <input type="text" id="doubaoBaseUrl" class="api-key-input" placeholder="例如: https://ark.cn-beijing.volces.com/api/v3">
+                </div>
+                <div class="custom-model-input">
+                    <label for="doubaoModelEndpoint">Doubao 模型端点:</label>
+                    <input type="text" id="doubaoModelEndpoint" class="api-key-input" placeholder="例如: ep-20250728134921-f2nvq">
+                </div>
+                <div class="api-key-actions">
+                    <button id="saveDoubaoBtn" class="btn-primary">保存</button>
+                    <button id="testDoubaoBtn" class="btn-success">测试连接</button>
                 </div>
             </div>
         </div>

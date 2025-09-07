@@ -5,18 +5,23 @@ class BackgroundManager {
         this.models = {
             kimi: {
                 name: 'Kimi',
-                apiUrl: 'https://api.moonshot.cn/v1/chat/completions',
-                models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k']
+                defaultBaseUrl: 'https://api.moonshot.cn/v1',
+                defaultModelEndpoint: 'moonshot-v1-8k'
             },
             deepseek: {
                 name: 'DeepSeek',
-                apiUrl: 'https://api.deepseek.com/v1/chat/completions',
-                models: ['deepseek-chat', 'deepseek-coder']
+                defaultBaseUrl: 'https://api.deepseek.com/v1',
+                defaultModelEndpoint: 'deepseek-chat'
             },
             qwen: {
                 name: 'Qwen',
-                apiUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
-                models: ['qwen-turbo', 'qwen-plus', 'qwen-max']
+                defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', // 修改为新的API地址
+                defaultModelEndpoint: 'qwen-turbo'
+            },
+            doubao: {
+                name: 'Doubao',
+                defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+                defaultModelEndpoint: ''
             }
         };
         
@@ -42,40 +47,82 @@ class BackgroundManager {
         // 监听来自sidebar的配置请求
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === "saveApiKey") {
-                this.saveApiKey(request.model, request.apiKey);
+                this.saveApiKey(request.model, request.apiKey, request.modelEndpoint, request.baseUrl);
                 sendResponse({ success: true });
             } else if (request.action === "testConnection") {
-                this.testConnection(request.model, request.apiKey)
+                this.testConnection(request.model, request.apiKey, request.modelEndpoint, request.baseUrl)
                     .then(result => sendResponse(result))
                     .catch(error => sendResponse({ success: false, message: error.message }));
-            } else if (request.action === "getModelVersions") {
-                const modelConfig = this.models[request.model];
-                sendResponse({ 
-                    success: true, 
-                    versions: modelConfig ? modelConfig.models : [] 
-                });
+            } else if (request.action === "loadModelConfig") {
+                this.loadModelConfig(request.model)
+                    .then(config => sendResponse({ success: true, config }))
+                    .catch(error => sendResponse({ success: false, message: error.message }));
+                return true; // 保持异步消息通道开放
             }
             return true;
         });
     }
 
     // 保存API Key到存储
-    async saveApiKey(model, apiKey) {
+    async saveApiKey(model, apiKey, modelEndpoint = null, baseUrl = null) {
         try {
             const key = `${model}ApiKey`;
-            await chrome.storage.local.set({ [key]: apiKey });
+            const data = { [key]: apiKey };
+            
+            // 保存模型端点
+            if (modelEndpoint) {
+                data[`${model}ModelEndpoint`] = modelEndpoint;
+            }
+            
+            // 保存Base URL
+            if (baseUrl) {
+                data[`${model}BaseUrl`] = baseUrl;
+            }
+            
+            await chrome.storage.local.set(data);
             console.log(`${model} API Key saved successfully`);
         } catch (error) {
             console.error(`Failed to save ${model} API Key:`, error);
         }
     }
+    
+    // 加载模型配置
+    async loadModelConfig(model) {
+        try {
+            const key = `${model}ApiKey`;
+            const endpointKey = `${model}ModelEndpoint`;
+            const baseUrlKey = `${model}BaseUrl`;
+            const storage = await chrome.storage.local.get([key, endpointKey, baseUrlKey]);
+            
+            // 获取默认配置
+            const defaultConfig = this.models[model] || {};
+            
+            return {
+                apiKey: storage[key] || null,
+                modelEndpoint: storage[endpointKey] || defaultConfig.defaultModelEndpoint || null,
+                baseUrl: storage[baseUrlKey] || defaultConfig.defaultBaseUrl || null
+            };
+        } catch (error) {
+            console.error(`Failed to load ${model} config:`, error);
+            return { apiKey: null, modelEndpoint: null, baseUrl: null };
+        }
+    }
 
     // 测试API连接
-    async testConnection(model, apiKey) {
+    async testConnection(model, apiKey, modelEndpoint = null, baseUrl = null) {
         try {
             const modelConfig = this.models[model];
             if (!modelConfig) {
                 throw new Error(`不支持的大模型: ${model}`);
+            }
+            
+            // 获取默认配置
+            const defaultConfig = this.models[model] || {};
+            const actualBaseUrl = baseUrl || defaultConfig.defaultBaseUrl;
+            const actualModelEndpoint = modelEndpoint || defaultConfig.defaultModelEndpoint;
+            
+            if (!actualBaseUrl || !actualModelEndpoint) {
+                throw new Error(`缺少必要的配置信息: Base URL或模型端点`);
             }
             
             let headers = {
@@ -90,11 +137,21 @@ class BackgroundManager {
                 headers['Authorization'] = `Bearer ${apiKey}`;
             }
             
-            const response = await fetch(modelConfig.apiUrl, {
+            // 构建请求URL
+            let requestUrl = '';
+            if (model === 'doubao') {
+                // Doubao使用查询参数形式
+                requestUrl = `${actualBaseUrl}/chat/completions?model_endpoint=${actualModelEndpoint}`;
+            } else {
+                // 其他模型使用路径形式
+                requestUrl = `${actualBaseUrl}/chat/completions`;
+            }
+            
+            const response = await fetch(requestUrl, {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify({
-                    model: modelConfig.models[0],
+                    model: actualModelEndpoint,
                     messages: [
                         {
                             role: 'user',
@@ -109,7 +166,8 @@ class BackgroundManager {
                 console.log(`${model} API connection test successful`);
                 return { success: true, message: '连接成功' };
             } else {
-                throw new Error(`API 请求失败: ${response.status} ${response.statusText}`);
+                const errorText = await response.text();
+                throw new Error(`API 请求失败: ${response.status} ${response.statusText} - ${errorText}`);
             }
         } catch (error) {
             console.error(`${model} API connection test failed:`, error);
@@ -134,13 +192,25 @@ class BackgroundManager {
         try {
             // 从存储中获取当前选择的模型和API Key
             const selectedModel = request.model || 'kimi';
-            const selectedModelVersion = request.modelVersion || null;
             const storageKey = `${selectedModel}ApiKey`;
-            const storage = await chrome.storage.local.get(storageKey);
+            const endpointKey = `${selectedModel}ModelEndpoint`;
+            const baseUrlKey = `${selectedModel}BaseUrl`;
+            const storage = await chrome.storage.local.get([storageKey, endpointKey, baseUrlKey]);
             const apiKey = storage[storageKey];
+            const modelEndpoint = storage[endpointKey];
+            const baseUrl = storage[baseUrlKey];
+            
+            // 获取默认配置
+            const defaultConfig = this.models[selectedModel] || {};
+            const actualModelEndpoint = modelEndpoint || defaultConfig.defaultModelEndpoint;
+            const actualBaseUrl = baseUrl || defaultConfig.defaultBaseUrl;
             
             if (!apiKey) {
                 throw new Error(`API Key未配置，请在侧边栏中设置${this.models[selectedModel]?.name || selectedModel} API Key`);
+            }
+            
+            if (!actualBaseUrl || !actualModelEndpoint) {
+                throw new Error(`缺少必要的配置信息: Base URL或模型端点`);
             }
             
             const result = await this.performTranslationWithRetry(
@@ -149,7 +219,8 @@ class BackgroundManager {
                 request.targetLang,
                 apiKey,
                 selectedModel,
-                selectedModelVersion
+                actualModelEndpoint,
+                actualBaseUrl
             );
             
             // 将翻译结果发送到sidebar显示
@@ -178,12 +249,12 @@ class BackgroundManager {
     }
 
     // 带重试机制的翻译功能
-    async performTranslationWithRetry(text, sourceLang, targetLang, apiKey, model, modelVersion, retryCount = 0) {
+    async performTranslationWithRetry(text, sourceLang, targetLang, apiKey, model, modelEndpoint, baseUrl, retryCount = 0) {
         const maxRetries = 3;
         const baseDelay = 1000; // 基础延迟1秒
         
         try {
-            return await this.performTranslation(text, sourceLang, targetLang, apiKey, model, modelVersion);
+            return await this.performTranslation(text, sourceLang, targetLang, apiKey, model, modelEndpoint, baseUrl);
         } catch (error) {
             // 如果是429错误且还有重试次数，则进行重试
             if (error.message.includes('429') && retryCount < maxRetries) {
@@ -192,7 +263,7 @@ class BackgroundManager {
                 
                 // 等待指定时间后重试
                 await new Promise(resolve => setTimeout(resolve, delay));
-                return this.performTranslationWithRetry(text, sourceLang, targetLang, apiKey, model, modelVersion, retryCount + 1);
+                return this.performTranslationWithRetry(text, sourceLang, targetLang, apiKey, model, modelEndpoint, baseUrl, retryCount + 1);
             }
             
             // 其他错误或重试次数已用完，直接抛出错误
@@ -201,20 +272,11 @@ class BackgroundManager {
     }
 
     // 执行翻译功能
-    async performTranslation(text, sourceLang, targetLang, apiKey, model, modelVersion) {
+    async performTranslation(text, sourceLang, targetLang, apiKey, model, modelEndpoint, baseUrl) {
         // 记录开始时间
         const startTime = Date.now();
         
         try {
-            // 获取模型配置
-            const modelConfig = this.models[model];
-            if (!modelConfig) {
-                throw new Error(`不支持的大模型: ${model}`);
-            }
-            
-            // 确定使用的模型版本
-            const actualModelVersion = modelVersion || modelConfig.models[0];
-            
             // 准备请求头
             let headers = {
                 'Content-Type': 'application/json'
@@ -223,14 +285,24 @@ class BackgroundManager {
             // 根据不同模型设置认证头
             if (model === 'qwen') {
                 headers['Authorization'] = `Bearer ${apiKey}`;
-                headers['X-DashScope-SSE'] = 'disable';
+                headers['X-DashScope-SSE'] = 'disable'; // 禁用SSE
             } else {
                 headers['Authorization'] = `Bearer ${apiKey}`;
             }
             
+            // 构建请求URL
+            let requestUrl = '';
+            if (model === 'doubao') {
+                // Doubao使用查询参数形式
+                requestUrl = `${baseUrl}/chat/completions?model_endpoint=${modelEndpoint}`;
+            } else {
+                // 其他模型使用路径形式
+                requestUrl = `${baseUrl}/chat/completions`;
+            }
+            
             // 构造请求体
             let requestBody = {
-                model: actualModelVersion,
+                model: modelEndpoint,
                 messages: [
                     {
                         role: 'user',
@@ -252,19 +324,19 @@ class BackgroundManager {
                 requestBody.parameters = {
                     result_format: 'text'
                 };
-                // 移除顶层messages字段
-                delete requestBody.messages;
+                // 保留顶层messages字段，确保API能正确识别参数
             }
             
             // 使用对应的大模型API进行翻译
-            const response = await fetch(modelConfig.apiUrl, {
+            const response = await fetch(requestUrl, {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify(requestBody)
             });
             
             if (!response.ok) {
-                throw new Error(`API 请求失败: ${response.status} ${response.statusText}`);
+                const errorText = await response.text();
+                throw new Error(`API 请求失败: ${response.status} ${response.statusText} - ${errorText}`);
             }
             
             const result = await response.json();
@@ -277,11 +349,18 @@ class BackgroundManager {
                 translatedText = result.choices[0].message.content.trim();
             } else if (model === 'qwen') {
                 // Qwen的响应格式不同
-                if (result.output && result.output.text) {
+                // 根据阿里云Qwen API文档，兼容模式下的响应格式与OpenAI类似
+                console.log('Qwen API response:', result);
+                if (result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content) {
+                    translatedText = result.choices[0].message.content.trim();
+                } else if (result.output && result.output.text) {
                     translatedText = result.output.text.trim();
                 } else {
                     throw new Error('Qwen API返回格式不正确');
                 }
+            } else if (model === 'doubao') {
+                // Doubao的响应格式与Kimi和DeepSeek类似
+                translatedText = result.choices[0].message.content.trim();
             }
             
             // 计算翻译时间

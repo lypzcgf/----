@@ -18,18 +18,33 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   // 大模型选择元素
   const modelSelect = document.getElementById('modelSelect');
-  const modelVersionSelect = document.getElementById('modelVersionSelect');
   
   // API Key相关元素
   const apiKeyInput = document.getElementById('apiKeyInput');
   const deepseekApiKeyInput = document.getElementById('deepseekApiKeyInput');
   const qwenApiKeyInput = document.getElementById('qwenApiKeyInput');
+  const doubaoApiKeyInput = document.getElementById('doubaoApiKeyInput');
+  
+  // Base URL相关元素
+  const kimiBaseUrl = document.getElementById('kimiBaseUrl');
+  const deepseekBaseUrl = document.getElementById('deepseekBaseUrl');
+  const qwenBaseUrl = document.getElementById('qwenBaseUrl');
+  const doubaoBaseUrl = document.getElementById('doubaoBaseUrl');
+  
+  // 模型端点相关元素
+  const kimiModelEndpoint = document.getElementById('kimiModelEndpoint');
+  const deepseekModelEndpoint = document.getElementById('deepseekModelEndpoint');
+  const qwenModelEndpoint = document.getElementById('qwenModelEndpoint');
+  const doubaoModelEndpoint = document.getElementById('doubaoModelEndpoint');
+  
   const saveBtn = document.getElementById('saveBtn');
   const testBtn = document.getElementById('testBtn');
   const saveDeepseekBtn = document.getElementById('saveDeepseekBtn');
   const testDeepseekBtn = document.getElementById('testDeepseekBtn');
   const saveQwenBtn = document.getElementById('saveQwenBtn');
   const testQwenBtn = document.getElementById('testQwenBtn');
+  const saveDoubaoBtn = document.getElementById('saveDoubaoBtn');
+  const testDoubaoBtn = document.getElementById('testDoubaoBtn');
   const debugBtn = document.getElementById('debugBtn');
   const logBtn = document.getElementById('logBtn');
   
@@ -66,72 +81,65 @@ document.addEventListener('DOMContentLoaded', async function() {
       selectedModel === 'deepseek' ? 'block' : 'none';
     document.getElementById('qwenApiKeySection').style.display = 
       selectedModel === 'qwen' ? 'block' : 'none';
+    document.getElementById('doubaoApiKeySection').style.display = 
+      selectedModel === 'doubao' ? 'block' : 'none';
     
-    // 加载对应模型的API Key
-    loadApiKey(selectedModel);
-    
-    // 更新模型版本下拉框
-    await updateModelVersions(selectedModel);
+    // 加载对应模型的API Key和配置
+    loadModelConfig(selectedModel);
   });
   
-  // 更新模型版本下拉框
-  async function updateModelVersions(model) {
+  // 加载模型配置
+  async function loadModelConfig(model) {
     try {
-      // 清空现有选项
-      modelVersionSelect.innerHTML = '';
-      
-      // 获取模型版本信息
       const response = await chrome.runtime.sendMessage({
-        action: "getModelVersions",
+        action: "loadModelConfig",
         model: model
       });
       
-      if (response.success && response.versions.length > 0) {
-        // 添加版本选项
-        response.versions.forEach(version => {
-          const option = document.createElement('option');
-          option.value = version;
-          option.textContent = version;
-          modelVersionSelect.appendChild(option);
-        });
+      if (response.success) {
+        const config = response.config;
         
-        // 显示版本选择框
-        modelVersionSelect.parentElement.style.display = 'block';
-      } else {
-        // 隐藏版本选择框
-        modelVersionSelect.parentElement.style.display = 'none';
-      }
-    } catch (error) {
-      console.error('Failed to get model versions:', error);
-      // 隐藏版本选择框
-      modelVersionSelect.parentElement.style.display = 'none';
-    }
-  }
-  
-  // 加载已保存的API Key
-  async function loadApiKey(model) {
-    try {
-      const key = `${model}ApiKey`;
-      const storage = await chrome.storage.local.get(key);
-      if (storage[key]) {
         if (model === 'kimi') {
-          apiKeyInput.value = storage[key];
+          apiKeyInput.value = config.apiKey || '';
+          kimiBaseUrl.value = config.baseUrl || '';
+          kimiModelEndpoint.value = config.modelEndpoint || '';
         } else if (model === 'deepseek') {
-          deepseekApiKeyInput.value = storage[key];
+          deepseekApiKeyInput.value = config.apiKey || '';
+          deepseekBaseUrl.value = config.baseUrl || '';
+          deepseekModelEndpoint.value = config.modelEndpoint || '';
         } else if (model === 'qwen') {
-          qwenApiKeyInput.value = storage[key];
+          qwenApiKeyInput.value = config.apiKey || '';
+          qwenBaseUrl.value = config.baseUrl || '';
+          qwenModelEndpoint.value = config.modelEndpoint || '';
+        } else if (model === 'doubao') {
+          doubaoApiKeyInput.value = config.apiKey || '';
+          doubaoBaseUrl.value = config.baseUrl || '';
+          doubaoModelEndpoint.value = config.modelEndpoint || '';
         }
       }
     } catch (error) {
-      console.error(`Failed to load ${model} API Key:`, error);
+      console.error(`Failed to load ${model} config:`, error);
     }
   }
 
   // 保存Kimi API Key
   saveBtn.addEventListener('click', async function() {
     const apiKey = apiKeyInput.value.trim();
+    const baseUrl = kimiBaseUrl.value.trim();
+    const modelEndpoint = kimiModelEndpoint.value.trim();
+    
     if (!apiKey) {
         alert('请输入API Key');
+        return;
+    }
+    
+    if (!baseUrl) {
+        alert('请输入Base URL');
+        return;
+    }
+    
+    if (!modelEndpoint) {
+        alert('请输入模型端点');
         return;
     }
     
@@ -139,10 +147,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         await chrome.runtime.sendMessage({
             action: "saveApiKey",
             model: 'kimi',
-            apiKey: apiKey
+            apiKey: apiKey,
+            baseUrl: baseUrl,
+            modelEndpoint: modelEndpoint
         });
         
-        alert('Kimi API Key保存成功！');
+        alert('Kimi API Key、Base URL和模型端点保存成功！');
     } catch (error) {
         console.error('Failed to save Kimi API Key:', error);
         alert('保存失败: ' + error.message);
@@ -152,8 +162,21 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 保存DeepSeek API Key
   saveDeepseekBtn.addEventListener('click', async function() {
     const apiKey = deepseekApiKeyInput.value.trim();
+    const baseUrl = deepseekBaseUrl.value.trim();
+    const modelEndpoint = deepseekModelEndpoint.value.trim();
+    
     if (!apiKey) {
         alert('请输入API Key');
+        return;
+    }
+    
+    if (!baseUrl) {
+        alert('请输入Base URL');
+        return;
+    }
+    
+    if (!modelEndpoint) {
+        alert('请输入模型端点');
         return;
     }
     
@@ -161,10 +184,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         await chrome.runtime.sendMessage({
             action: "saveApiKey",
             model: 'deepseek',
-            apiKey: apiKey
+            apiKey: apiKey,
+            baseUrl: baseUrl,
+            modelEndpoint: modelEndpoint
         });
         
-        alert('DeepSeek API Key保存成功！');
+        alert('DeepSeek API Key、Base URL和模型端点保存成功！');
     } catch (error) {
         console.error('Failed to save DeepSeek API Key:', error);
         alert('保存失败: ' + error.message);
@@ -174,8 +199,21 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 保存Qwen API Key
   saveQwenBtn.addEventListener('click', async function() {
     const apiKey = qwenApiKeyInput.value.trim();
+    const baseUrl = qwenBaseUrl.value.trim();
+    const modelEndpoint = qwenModelEndpoint.value.trim();
+    
     if (!apiKey) {
         alert('请输入API Key');
+        return;
+    }
+    
+    if (!baseUrl) {
+        alert('请输入Base URL');
+        return;
+    }
+    
+    if (!modelEndpoint) {
+        alert('请输入模型端点');
         return;
     }
     
@@ -183,12 +221,51 @@ document.addEventListener('DOMContentLoaded', async function() {
         await chrome.runtime.sendMessage({
             action: "saveApiKey",
             model: 'qwen',
-            apiKey: apiKey
+            apiKey: apiKey,
+            baseUrl: baseUrl,
+            modelEndpoint: modelEndpoint
         });
         
-        alert('Qwen API Key保存成功！');
+        alert('Qwen API Key、Base URL和模型端点保存成功！');
     } catch (error) {
         console.error('Failed to save Qwen API Key:', error);
+        alert('保存失败: ' + error.message);
+    }
+  });
+  
+  // 保存Doubao API Key、Base URL和模型端点
+  saveDoubaoBtn.addEventListener('click', async function() {
+    const apiKey = doubaoApiKeyInput.value.trim();
+    const baseUrl = doubaoBaseUrl.value.trim();
+    const modelEndpoint = doubaoModelEndpoint.value.trim();
+    
+    if (!apiKey) {
+        alert('请输入API Key');
+        return;
+    }
+    
+    if (!baseUrl) {
+        alert('请输入Base URL');
+        return;
+    }
+    
+    if (!modelEndpoint) {
+        alert('请输入模型端点');
+        return;
+    }
+    
+    try {
+        await chrome.runtime.sendMessage({
+            action: "saveApiKey",
+            model: 'doubao',
+            apiKey: apiKey,
+            baseUrl: baseUrl,
+            modelEndpoint: modelEndpoint
+        });
+        
+        alert('Doubao API Key、Base URL和模型端点保存成功！');
+    } catch (error) {
+        console.error('Failed to save Doubao API Key:', error);
         alert('保存失败: ' + error.message);
     }
   });
@@ -196,8 +273,21 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 测试Kimi API连接
   testBtn.addEventListener('click', async function() {
     const apiKey = apiKeyInput.value.trim();
+    const baseUrl = kimiBaseUrl.value.trim();
+    const modelEndpoint = kimiModelEndpoint.value.trim();
+    
     if (!apiKey) {
         alert('请输入API Key');
+        return;
+    }
+    
+    if (!baseUrl) {
+        alert('请输入Base URL');
+        return;
+    }
+    
+    if (!modelEndpoint) {
+        alert('请输入模型端点');
         return;
     }
     
@@ -205,7 +295,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const result = await chrome.runtime.sendMessage({
             action: "testConnection",
             model: 'kimi',
-            apiKey: apiKey
+            apiKey: apiKey,
+            baseUrl: baseUrl,
+            modelEndpoint: modelEndpoint
         });
         
         if (result.success) {
@@ -222,8 +314,21 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 测试DeepSeek API连接
   testDeepseekBtn.addEventListener('click', async function() {
     const apiKey = deepseekApiKeyInput.value.trim();
+    const baseUrl = deepseekBaseUrl.value.trim();
+    const modelEndpoint = deepseekModelEndpoint.value.trim();
+    
     if (!apiKey) {
         alert('请输入API Key');
+        return;
+    }
+    
+    if (!baseUrl) {
+        alert('请输入Base URL');
+        return;
+    }
+    
+    if (!modelEndpoint) {
+        alert('请输入模型端点');
         return;
     }
     
@@ -231,7 +336,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const result = await chrome.runtime.sendMessage({
             action: "testConnection",
             model: 'deepseek',
-            apiKey: apiKey
+            apiKey: apiKey,
+            baseUrl: baseUrl,
+            modelEndpoint: modelEndpoint
         });
         
         if (result.success) {
@@ -248,8 +355,21 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 测试Qwen API连接
   testQwenBtn.addEventListener('click', async function() {
     const apiKey = qwenApiKeyInput.value.trim();
+    const baseUrl = qwenBaseUrl.value.trim();
+    const modelEndpoint = qwenModelEndpoint.value.trim();
+    
     if (!apiKey) {
         alert('请输入API Key');
+        return;
+    }
+    
+    if (!baseUrl) {
+        alert('请输入Base URL');
+        return;
+    }
+    
+    if (!modelEndpoint) {
+        alert('请输入模型端点');
         return;
     }
     
@@ -257,7 +377,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const result = await chrome.runtime.sendMessage({
             action: "testConnection",
             model: 'qwen',
-            apiKey: apiKey
+            apiKey: apiKey,
+            baseUrl: baseUrl,
+            modelEndpoint: modelEndpoint
         });
         
         if (result.success) {
@@ -268,6 +390,47 @@ document.addEventListener('DOMContentLoaded', async function() {
     } catch (error) {
         console.error('Test Qwen connection failed:', error);
         alert('测试Qwen连接失败: ' + error.message);
+    }
+  });
+  
+  // 测试Doubao API连接
+  testDoubaoBtn.addEventListener('click', async function() {
+    const apiKey = doubaoApiKeyInput.value.trim();
+    const baseUrl = doubaoBaseUrl.value.trim();
+    const modelEndpoint = doubaoModelEndpoint.value.trim();
+    
+    if (!apiKey) {
+        alert('请输入API Key');
+        return;
+    }
+    
+    if (!baseUrl) {
+        alert('请输入Base URL');
+        return;
+    }
+    
+    if (!modelEndpoint) {
+        alert('请输入模型端点');
+        return;
+    }
+    
+    try {
+        const result = await chrome.runtime.sendMessage({
+            action: "testConnection",
+            model: 'doubao',
+            apiKey: apiKey,
+            baseUrl: baseUrl,
+            modelEndpoint: modelEndpoint
+        });
+        
+        if (result.success) {
+            alert('Doubao连接成功！' + result.message);
+        } else {
+            alert('Doubao连接失败: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Test Doubao connection failed:', error);
+        alert('测试Doubao连接失败: ' + error.message);
     }
   });
 
@@ -346,7 +509,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     const sourceLang = sourceLangSelect.value;
     const targetLang = targetLangSelect.value;
     const selectedModel = modelSelect.value; // 获取选择的大模型
-    const selectedModelVersion = modelVersionSelect.value; // 获取选择的模型版本
     
     // 每次点击翻译按钮时都重新获取当前选中的文本
     try {
@@ -379,8 +541,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         text: currentText,
         sourceLang: sourceLang,
         targetLang: targetLang,
-        model: selectedModel, // 传递选择的大模型
-        modelVersion: selectedModelVersion // 传递选择的模型版本
+        model: selectedModel // 传递选择的大模型
       });
       
       // 检查响应
@@ -469,6 +630,5 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
 
   // 页面加载完成后加载API Key和模型版本
-  loadApiKey('kimi'); // 默认加载Kimi的API Key
-  updateModelVersions('kimi'); // 默认加载Kimi的模型版本
+  loadModelConfig('kimi'); // 默认加载Kimi的API Key
 });
