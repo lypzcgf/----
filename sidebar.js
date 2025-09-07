@@ -16,12 +16,22 @@ document.addEventListener('DOMContentLoaded', async function() {
   const paragraphCountEl = document.getElementById('paragraphCount');
   const lineCountEl = document.getElementById('lineCount');
   
+  // 大模型选择元素
+  const modelSelect = document.getElementById('modelSelect');
+  
   // API Key相关元素
   const apiKeyInput = document.getElementById('apiKeyInput');
+  const deepseekApiKeyInput = document.getElementById('deepseekApiKeyInput');
+  const qwenApiKeyInput = document.getElementById('qwenApiKeyInput');
   const saveBtn = document.getElementById('saveBtn');
   const testBtn = document.getElementById('testBtn');
+  const saveDeepseekBtn = document.getElementById('saveDeepseekBtn');
+  const testDeepseekBtn = document.getElementById('testDeepseekBtn');
+  const saveQwenBtn = document.getElementById('saveQwenBtn');
+  const testQwenBtn = document.getElementById('testQwenBtn');
   const debugBtn = document.getElementById('debugBtn');
   const logBtn = document.getElementById('logBtn');
+  
   // 新增：复制原文按钮
   const copyOriginalBtn = document.getElementById('copyOriginalBtn');
   
@@ -44,19 +54,42 @@ document.addEventListener('DOMContentLoaded', async function() {
     return true;
   });
   
+  // 监听大模型选择变化
+  modelSelect.addEventListener('change', function() {
+    const selectedModel = modelSelect.value;
+    
+    // 显示对应的API Key配置区域
+    document.getElementById('kimiApiKeySection').style.display = 
+      selectedModel === 'kimi' ? 'block' : 'none';
+    document.getElementById('deepseekApiKeySection').style.display = 
+      selectedModel === 'deepseek' ? 'block' : 'none';
+    document.getElementById('qwenApiKeySection').style.display = 
+      selectedModel === 'qwen' ? 'block' : 'none';
+    
+    // 加载对应模型的API Key
+    loadApiKey(selectedModel);
+  });
+  
   // 加载已保存的API Key
-  async function loadApiKey() {
+  async function loadApiKey(model) {
     try {
-      const storage = await chrome.storage.local.get('kimiApiKey');
-      if (storage.kimiApiKey) {
-        apiKeyInput.value = storage.kimiApiKey;
+      const key = `${model}ApiKey`;
+      const storage = await chrome.storage.local.get(key);
+      if (storage[key]) {
+        if (model === 'kimi') {
+          apiKeyInput.value = storage[key];
+        } else if (model === 'deepseek') {
+          deepseekApiKeyInput.value = storage[key];
+        } else if (model === 'qwen') {
+          qwenApiKeyInput.value = storage[key];
+        }
       }
     } catch (error) {
-      console.error('Failed to load API Key:', error);
+      console.error(`Failed to load ${model} API Key:`, error);
     }
   }
 
-  // 保存API Key
+  // 保存Kimi API Key
   saveBtn.addEventListener('click', async function() {
     const apiKey = apiKeyInput.value.trim();
     if (!apiKey) {
@@ -67,17 +100,62 @@ document.addEventListener('DOMContentLoaded', async function() {
     try {
         await chrome.runtime.sendMessage({
             action: "saveApiKey",
+            model: 'kimi',
             apiKey: apiKey
         });
         
-        alert('API Key保存成功！');
+        alert('Kimi API Key保存成功！');
     } catch (error) {
-        console.error('Failed to save API Key:', error);
+        console.error('Failed to save Kimi API Key:', error);
+        alert('保存失败: ' + error.message);
+    }
+  });
+  
+  // 保存DeepSeek API Key
+  saveDeepseekBtn.addEventListener('click', async function() {
+    const apiKey = deepseekApiKeyInput.value.trim();
+    if (!apiKey) {
+        alert('请输入API Key');
+        return;
+    }
+    
+    try {
+        await chrome.runtime.sendMessage({
+            action: "saveApiKey",
+            model: 'deepseek',
+            apiKey: apiKey
+        });
+        
+        alert('DeepSeek API Key保存成功！');
+    } catch (error) {
+        console.error('Failed to save DeepSeek API Key:', error);
+        alert('保存失败: ' + error.message);
+    }
+  });
+  
+  // 保存Qwen API Key
+  saveQwenBtn.addEventListener('click', async function() {
+    const apiKey = qwenApiKeyInput.value.trim();
+    if (!apiKey) {
+        alert('请输入API Key');
+        return;
+    }
+    
+    try {
+        await chrome.runtime.sendMessage({
+            action: "saveApiKey",
+            model: 'qwen',
+            apiKey: apiKey
+        });
+        
+        alert('Qwen API Key保存成功！');
+    } catch (error) {
+        console.error('Failed to save Qwen API Key:', error);
         alert('保存失败: ' + error.message);
     }
   });
 
-  // 测试API连接
+  // 测试Kimi API连接
   testBtn.addEventListener('click', async function() {
     const apiKey = apiKeyInput.value.trim();
     if (!apiKey) {
@@ -88,17 +166,70 @@ document.addEventListener('DOMContentLoaded', async function() {
     try {
         const result = await chrome.runtime.sendMessage({
             action: "testConnection",
+            model: 'kimi',
             apiKey: apiKey
         });
         
         if (result.success) {
-            alert('连接成功！' + result.message);
+            alert('Kimi连接成功！' + result.message);
         } else {
-            alert('连接失败: ' + result.message);
+            alert('Kimi连接失败: ' + result.message);
         }
     } catch (error) {
-        console.error('Test connection failed:', error);
-        alert('测试连接失败: ' + error.message);
+        console.error('Test Kimi connection failed:', error);
+        alert('测试Kimi连接失败: ' + error.message);
+    }
+  });
+  
+  // 测试DeepSeek API连接
+  testDeepseekBtn.addEventListener('click', async function() {
+    const apiKey = deepseekApiKeyInput.value.trim();
+    if (!apiKey) {
+        alert('请输入API Key');
+        return;
+    }
+    
+    try {
+        const result = await chrome.runtime.sendMessage({
+            action: "testConnection",
+            model: 'deepseek',
+            apiKey: apiKey
+        });
+        
+        if (result.success) {
+            alert('DeepSeek连接成功！' + result.message);
+        } else {
+            alert('DeepSeek连接失败: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Test DeepSeek connection failed:', error);
+        alert('测试DeepSeek连接失败: ' + error.message);
+    }
+  });
+  
+  // 测试Qwen API连接
+  testQwenBtn.addEventListener('click', async function() {
+    const apiKey = qwenApiKeyInput.value.trim();
+    if (!apiKey) {
+        alert('请输入API Key');
+        return;
+    }
+    
+    try {
+        const result = await chrome.runtime.sendMessage({
+            action: "testConnection",
+            model: 'qwen',
+            apiKey: apiKey
+        });
+        
+        if (result.success) {
+            alert('Qwen连接成功！' + result.message);
+        } else {
+            alert('Qwen连接失败: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Test Qwen connection failed:', error);
+        alert('测试Qwen连接失败: ' + error.message);
     }
   });
 
@@ -176,6 +307,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   translateBtn.addEventListener('click', async function() {
     const sourceLang = sourceLangSelect.value;
     const targetLang = targetLangSelect.value;
+    const selectedModel = modelSelect.value; // 获取选择的大模型
     
     // 每次点击翻译按钮时都重新获取当前选中的文本
     try {
@@ -207,7 +339,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         action: "translate",
         text: currentText,
         sourceLang: sourceLang,
-        targetLang: targetLang
+        targetLang: targetLang,
+        model: selectedModel // 传递选择的大模型
       });
       
       // 检查响应
@@ -296,5 +429,5 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
 
   // 页面加载完成后加载API Key
-  loadApiKey();
+  loadApiKey('kimi'); // 默认加载Kimi的API Key
 });

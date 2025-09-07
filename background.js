@@ -1,8 +1,24 @@
 // Background Script - 插件后台服务
 class BackgroundManager {
     constructor() {
-        // 移除硬编码的API Key
-        // this.KIMI_API_KEY = 'sk-LTIebGczJcAws63kcVpQQjfgu0Ip98RQdC6lcBPRpESoShzF';
+        // 定义支持的大模型配置
+        this.models = {
+            kimi: {
+                name: 'Kimi',
+                apiUrl: 'https://api.moonshot.cn/v1/chat/completions',
+                models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k']
+            },
+            deepseek: {
+                name: 'DeepSeek',
+                apiUrl: 'https://api.deepseek.com/v1/chat/completions',
+                models: ['deepseek-chat', 'deepseek-coder']
+            },
+            qwen: {
+                name: 'Qwen',
+                apiUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
+                models: ['qwen-turbo', 'qwen-plus', 'qwen-max']
+            }
+        };
         
         this.init();
     }
@@ -26,10 +42,10 @@ class BackgroundManager {
         // 监听来自sidebar的配置请求
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === "saveApiKey") {
-                this.saveApiKey(request.apiKey);
+                this.saveApiKey(request.model, request.apiKey);
                 sendResponse({ success: true });
             } else if (request.action === "testConnection") {
-                this.testConnection(request.apiKey)
+                this.testConnection(request.model, request.apiKey)
                     .then(result => sendResponse(result))
                     .catch(error => sendResponse({ success: false, message: error.message }));
                 return true; // 保持异步消息通道开放
@@ -39,26 +55,41 @@ class BackgroundManager {
     }
 
     // 保存API Key到存储
-    async saveApiKey(apiKey) {
+    async saveApiKey(model, apiKey) {
         try {
-            await chrome.storage.local.set({ kimiApiKey: apiKey });
-            console.log('API Key saved successfully');
+            const key = `${model}ApiKey`;
+            await chrome.storage.local.set({ [key]: apiKey });
+            console.log(`${model} API Key saved successfully`);
         } catch (error) {
-            console.error('Failed to save API Key:', error);
+            console.error(`Failed to save ${model} API Key:`, error);
         }
     }
 
     // 测试API连接
-    async testConnection(apiKey) {
+    async testConnection(model, apiKey) {
         try {
-            const response = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+            const modelConfig = this.models[model];
+            if (!modelConfig) {
+                throw new Error(`不支持的大模型: ${model}`);
+            }
+            
+            let headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // 根据不同模型设置认证头
+            if (model === 'qwen') {
+                headers['Authorization'] = `Bearer ${apiKey}`;
+                headers['X-DashScope-SSE'] = 'enable';
+            } else {
+                headers['Authorization'] = `Bearer ${apiKey}`;
+            }
+            
+            const response = await fetch(modelConfig.apiUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
+                headers: headers,
                 body: JSON.stringify({
-                    model: 'moonshot-v1-8k',
+                    model: modelConfig.models[0],
                     messages: [
                         {
                             role: 'user',
@@ -70,13 +101,13 @@ class BackgroundManager {
             });
 
             if (response.ok) {
-                console.log('API connection test successful');
+                console.log(`${model} API connection test successful`);
                 return { success: true, message: '连接成功' };
             } else {
                 throw new Error(`API 请求失败: ${response.status} ${response.statusText}`);
             }
         } catch (error) {
-            console.error('API connection test failed:', error);
+            console.error(`${model} API connection test failed:`, error);
             return { success: false, message: error.message };
         }
     }
@@ -96,19 +127,22 @@ class BackgroundManager {
     // 处理翻译请求
     async handleTranslate(request, sender, sendResponse) {
         try {
-            // 从存储中获取API Key
-            const storage = await chrome.storage.local.get('kimiApiKey');
-            const apiKey = storage.kimiApiKey;
+            // 从存储中获取当前选择的模型和API Key
+            const selectedModel = request.model || 'kimi';
+            const storageKey = `${selectedModel}ApiKey`;
+            const storage = await chrome.storage.local.get(storageKey);
+            const apiKey = storage[storageKey];
             
             if (!apiKey) {
-                throw new Error('API Key未配置，请在侧边栏中设置Kimi API Key');
+                throw new Error(`API Key未配置，请在侧边栏中设置${this.models[selectedModel]?.name || selectedModel} API Key`);
             }
             
             const result = await this.performTranslationWithRetry(
                 request.text, 
                 request.sourceLang, 
                 request.targetLang,
-                apiKey
+                apiKey,
+                selectedModel
             );
             
             // 将翻译结果发送到sidebar显示
@@ -137,12 +171,12 @@ class BackgroundManager {
     }
 
     // 带重试机制的翻译功能
-    async performTranslationWithRetry(text, sourceLang, targetLang, apiKey, retryCount = 0) {
+    async performTranslationWithRetry(text, sourceLang, targetLang, apiKey, model, retryCount = 0) {
         const maxRetries = 3;
         const baseDelay = 1000; // 基础延迟1秒
         
         try {
-            return await this.performTranslation(text, sourceLang, targetLang, apiKey);
+            return await this.performTranslation(text, sourceLang, targetLang, apiKey, model);
         } catch (error) {
             // 如果是429错误且还有重试次数，则进行重试
             if (error.message.includes('429') && retryCount < maxRetries) {
@@ -151,7 +185,7 @@ class BackgroundManager {
                 
                 // 等待指定时间后重试
                 await new Promise(resolve => setTimeout(resolve, delay));
-                return this.performTranslationWithRetry(text, sourceLang, targetLang, apiKey, retryCount + 1);
+                return this.performTranslationWithRetry(text, sourceLang, targetLang, apiKey, model, retryCount + 1);
             }
             
             // 其他错误或重试次数已用完，直接抛出错误
@@ -160,27 +194,63 @@ class BackgroundManager {
     }
 
     // 执行翻译功能
-    async performTranslation(text, sourceLang, targetLang, apiKey) {
+    async performTranslation(text, sourceLang, targetLang, apiKey, model) {
         // 记录开始时间
         const startTime = Date.now();
         
         try {
-            // 使用 Kimi API 进行翻译
-            const response = await fetch('https://api.moonshot.cn/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: 'moonshot-v1-8k',
+            // 获取模型配置
+            const modelConfig = this.models[model];
+            if (!modelConfig) {
+                throw new Error(`不支持的大模型: ${model}`);
+            }
+            
+            // 准备请求头
+            let headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // 根据不同模型设置认证头
+            if (model === 'qwen') {
+                headers['Authorization'] = `Bearer ${apiKey}`;
+                headers['X-DashScope-SSE'] = 'disable';
+            } else {
+                headers['Authorization'] = `Bearer ${apiKey}`;
+            }
+            
+            // 构造请求体
+            let requestBody = {
+                model: modelConfig.models[0],
+                messages: [
+                    {
+                        role: 'user',
+                        content: `请将以下文本从${sourceLang === 'auto' ? '自动检测的语言' : sourceLang}翻译成${targetLang}，只返回翻译结果，不要添加任何解释或其他内容：\n\n${text}`
+                    }
+                ]
+            };
+            
+            // Qwen模型需要额外的参数
+            if (model === 'qwen') {
+                requestBody.input = {
                     messages: [
                         {
                             role: 'user',
                             content: `请将以下文本从${sourceLang === 'auto' ? '自动检测的语言' : sourceLang}翻译成${targetLang}，只返回翻译结果，不要添加任何解释或其他内容：\n\n${text}`
                         }
                     ]
-                })
+                };
+                requestBody.parameters = {
+                    result_format: 'text'
+                };
+                // 移除顶层messages字段
+                delete requestBody.messages;
+            }
+            
+            // 使用对应的大模型API进行翻译
+            const response = await fetch(modelConfig.apiUrl, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(requestBody)
             });
             
             if (!response.ok) {
@@ -188,7 +258,21 @@ class BackgroundManager {
             }
             
             const result = await response.json();
-            const translatedText = result.choices[0].message.content.trim(); // 去除首尾空白
+            let translatedText = '';
+            
+            // 根据不同模型的响应格式提取翻译结果
+            if (model === 'kimi') {
+                translatedText = result.choices[0].message.content.trim();
+            } else if (model === 'deepseek') {
+                translatedText = result.choices[0].message.content.trim();
+            } else if (model === 'qwen') {
+                // Qwen的响应格式不同
+                if (result.output && result.output.text) {
+                    translatedText = result.output.text.trim();
+                } else {
+                    throw new Error('Qwen API返回格式不正确');
+                }
+            }
             
             // 计算翻译时间
             const translationTime = ((Date.now() - startTime) / 1000).toFixed(2);

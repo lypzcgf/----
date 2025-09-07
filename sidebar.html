@@ -128,17 +128,54 @@
     <div class="container">
         <h1>智能翻译助手</h1>
         
-        <!-- API Key 配置区域 -->
-        <div class="api-config">
-            <div class="api-key-label">
-                <span style="color: #ffc107;">🔑</span> Kimi API Key
+        <!-- 大模型设置区域 -->
+        <div class="section">
+            <h2>大模型设置</h2>
+            <div class="form-group">
+                <label for="modelSelect">选择大模型:</label>
+                <select id="modelSelect">
+                    <option value="kimi">Kimi</option>
+                    <option value="deepseek">DeepSeek</option>
+                    <option value="qwen">Qwen</option>
+                </select>
             </div>
-            <input type="password" id="apiKeyInput" class="api-key-input" placeholder="请输入您的Kimi API Key">
-            <div class="api-key-actions">
-                <button id="saveBtn" class="btn-primary">保存</button>
-                <button id="testBtn" class="btn-success">测试连接</button>
-                <button id="debugBtn" class="btn-secondary debug-btn">开启调试</button>
-                <button id="logBtn" class="btn-info log-btn">导出日志</button>
+            
+            <!-- Kimi API Key 配置 -->
+            <div id="kimiApiKeySection" class="api-config">
+                <div class="api-key-label">
+                    <span style="color: #ffc107;">🔑</span> Kimi API Key
+                </div>
+                <input type="password" id="apiKeyInput" class="api-key-input" placeholder="请输入您的Kimi API Key">
+                <div class="api-key-actions">
+                    <button id="saveBtn" class="btn-primary">保存</button>
+                    <button id="testBtn" class="btn-success">测试连接</button>
+                    <button id="debugBtn" class="btn-secondary debug-btn">开启调试</button>
+                    <button id="logBtn" class="btn-info log-btn">导出日志</button>
+                </div>
+            </div>
+            
+            <!-- DeepSeek API Key 配置 -->
+            <div id="deepseekApiKeySection" class="api-config" style="display: none;">
+                <div class="api-key-label">
+                    <span style="color: #ffc107;">🔑</span> DeepSeek API Key
+                </div>
+                <input type="password" id="deepseekApiKeyInput" class="api-key-input" placeholder="请输入您的DeepSeek API Key">
+                <div class="api-key-actions">
+                    <button id="saveDeepseekBtn" class="btn-primary">保存</button>
+                    <button id="testDeepseekBtn" class="btn-success">测试连接</button>
+                </div>
+            </div>
+            
+            <!-- Qwen API Key 配置 -->
+            <div id="qwenApiKeySection" class="api-config" style="display: none;">
+                <div class="api-key-label">
+                    <span style="color: #ffc107;">🔑</span> Qwen API Key
+                </div>
+                <input type="password" id="qwenApiKeyInput" class="api-key-input" placeholder="请输入您的Qwen API Key">
+                <div class="api-key-actions">
+                    <button id="saveQwenBtn" class="btn-primary">保存</button>
+                    <button id="testQwenBtn" class="btn-success">测试连接</button>
+                </div>
             </div>
         </div>
 
