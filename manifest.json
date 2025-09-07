@@ -11,7 +11,7 @@
   ],
   "host_permissions": [
     "https://api.moonshot.cn/*",
-    "https://dashscope.aliyuncs.com/*",  // 添加Qwen API域名
+    "https://dashscope.aliyuncs.com/*", 
     "<all_urls>"
   ],
   "icons": {
