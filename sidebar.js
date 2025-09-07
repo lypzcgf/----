@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   const copyBtn = document.getElementById('copyBtn');
   const translationResult = document.getElementById('translationResult');
   
+  // 新增：获取网页原文元素
+  const originalText = document.getElementById('originalText');
+  
   // 统计信息元素
   const translationTimeEl = document.getElementById('translationTime');
   const charCountEl = document.getElementById('charCount');
@@ -30,6 +33,8 @@ document.addEventListener('DOMContentLoaded', async function() {
       sendResponse({ success: true });
     } else if (message.action === "displayText") {
       currentText = message.text;
+      // 更新网页原文显示
+      originalText.textContent = message.text;
       // 添加调试信息
       console.log('Received text from content script:', message.text);
       sendResponse({ success: true });
@@ -186,6 +191,9 @@ document.addEventListener('DOMContentLoaded', async function() {
       translationResult.textContent = '没有可翻译的文本内容';
       return;
     }
+    
+    // 更新网页原文显示
+    originalText.textContent = currentText;
     
     // 显示正在翻译状态
     translateBtn.textContent = '🔄 翻译中...';
