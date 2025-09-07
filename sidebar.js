@@ -56,15 +56,24 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   // 监听来自background的消息
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log('Received message in sidebar:', message);
     if (message.action === "displayResult") {
       displayTranslationResult(message.result);
       sendResponse({ success: true });
     } else if (message.action === "displayText") {
       currentText = message.text;
       // 更新网页原文显示
-      originalText.textContent = message.text;
+      if (message.text && message.text.length > 0) {
+        originalText.textContent = message.text;
+        originalText.style.color = 'black';
+        console.log('Updated original text to selected content');
+      } else {
+        originalText.textContent = '请在网页中选择需要翻译的文本';
+        originalText.style.color = '#999';
+        console.log('Reset original text to default message');
+      }
       // 添加调试信息
-      console.log('Received text from content script:', message.text);
+      console.log('Updated original text in sidebar:', message.text);
       sendResponse({ success: true });
     }
     return true;
@@ -583,7 +592,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 新增：复制原文按钮点击事件
   copyOriginalBtn.addEventListener('click', function() {
     const textToCopy = originalText.textContent;
-    if (textToCopy && textToCopy !== '点击“开始翻译”按钮来查看选中的文本') {
+    if (textToCopy && textToCopy !== '请在网页中选择需要翻译的文本') {
       navigator.clipboard.writeText(textToCopy)
         .then(() => {
           const originalText = copyOriginalBtn.textContent;

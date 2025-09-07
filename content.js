@@ -18,20 +18,20 @@ class ContentManager {
                 const selection = window.getSelection();
                 const selectedText = selection.toString().trim();
                 
-                // 只有当选中文本且长度大于0时才发送消息
-                if (selectedText) {
-                    // 添加调试信息
-                    console.log('Detected selected text:', selectedText);
-                    
-                    // 发送消息到sidebar
-                    chrome.runtime.sendMessage({
-                        action: "displayText",
-                        text: selectedText
-                    }).catch(err => {
-                        // 记录错误但不中断
-                        console.error('Failed to send selected text to sidebar:', err);
-                    });
-                }
+                // 添加调试信息
+                console.log('Selection change detected. Selected text length:', selectedText.length);
+                console.log('Selected text content:', selectedText);
+                
+                // 发送消息到sidebar（无论是否有选中文本）
+                chrome.runtime.sendMessage({
+                    action: "displayText",
+                    text: selectedText
+                }).then(() => {
+                    console.log('Successfully sent text to sidebar');
+                }).catch(err => {
+                    // 记录错误但不中断
+                    console.error('Failed to send selected text to sidebar:', err);
+                });
             }, 50); // 50ms延迟确保选择操作完成
         });
     }
