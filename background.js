@@ -48,7 +48,12 @@ class BackgroundManager {
                 this.testConnection(request.model, request.apiKey)
                     .then(result => sendResponse(result))
                     .catch(error => sendResponse({ success: false, message: error.message }));
-                return true; // 保持异步消息通道开放
+            } else if (request.action === "getModelVersions") {
+                const modelConfig = this.models[request.model];
+                sendResponse({ 
+                    success: true, 
+                    versions: modelConfig ? modelConfig.models : [] 
+                });
             }
             return true;
         });
@@ -129,6 +134,7 @@ class BackgroundManager {
         try {
             // 从存储中获取当前选择的模型和API Key
             const selectedModel = request.model || 'kimi';
+            const selectedModelVersion = request.modelVersion || null;
             const storageKey = `${selectedModel}ApiKey`;
             const storage = await chrome.storage.local.get(storageKey);
             const apiKey = storage[storageKey];
@@ -142,7 +148,8 @@ class BackgroundManager {
                 request.sourceLang, 
                 request.targetLang,
                 apiKey,
-                selectedModel
+                selectedModel,
+                selectedModelVersion
             );
             
             // 将翻译结果发送到sidebar显示
@@ -171,12 +178,12 @@ class BackgroundManager {
     }
 
     // 带重试机制的翻译功能
-    async performTranslationWithRetry(text, sourceLang, targetLang, apiKey, model, retryCount = 0) {
+    async performTranslationWithRetry(text, sourceLang, targetLang, apiKey, model, modelVersion, retryCount = 0) {
         const maxRetries = 3;
         const baseDelay = 1000; // 基础延迟1秒
         
         try {
-            return await this.performTranslation(text, sourceLang, targetLang, apiKey, model);
+            return await this.performTranslation(text, sourceLang, targetLang, apiKey, model, modelVersion);
         } catch (error) {
             // 如果是429错误且还有重试次数，则进行重试
             if (error.message.includes('429') && retryCount < maxRetries) {
@@ -185,7 +192,7 @@ class BackgroundManager {
                 
                 // 等待指定时间后重试
                 await new Promise(resolve => setTimeout(resolve, delay));
-                return this.performTranslationWithRetry(text, sourceLang, targetLang, apiKey, model, retryCount + 1);
+                return this.performTranslationWithRetry(text, sourceLang, targetLang, apiKey, model, modelVersion, retryCount + 1);
             }
             
             // 其他错误或重试次数已用完，直接抛出错误
@@ -194,7 +201,7 @@ class BackgroundManager {
     }
 
     // 执行翻译功能
-    async performTranslation(text, sourceLang, targetLang, apiKey, model) {
+    async performTranslation(text, sourceLang, targetLang, apiKey, model, modelVersion) {
         // 记录开始时间
         const startTime = Date.now();
         
@@ -204,6 +211,9 @@ class BackgroundManager {
             if (!modelConfig) {
                 throw new Error(`不支持的大模型: ${model}`);
             }
+            
+            // 确定使用的模型版本
+            const actualModelVersion = modelVersion || modelConfig.models[0];
             
             // 准备请求头
             let headers = {
@@ -220,7 +230,7 @@ class BackgroundManager {
             
             // 构造请求体
             let requestBody = {
-                model: modelConfig.models[0],
+                model: actualModelVersion,
                 messages: [
                     {
                         role: 'user',

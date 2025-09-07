@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   // 大模型选择元素
   const modelSelect = document.getElementById('modelSelect');
+  const modelVersionSelect = document.getElementById('modelVersionSelect');
   
   // API Key相关元素
   const apiKeyInput = document.getElementById('apiKeyInput');
@@ -55,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   });
   
   // 监听大模型选择变化
-  modelSelect.addEventListener('change', function() {
+  modelSelect.addEventListener('change', async function() {
     const selectedModel = modelSelect.value;
     
     // 显示对应的API Key配置区域
@@ -68,7 +69,44 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // 加载对应模型的API Key
     loadApiKey(selectedModel);
+    
+    // 更新模型版本下拉框
+    await updateModelVersions(selectedModel);
   });
+  
+  // 更新模型版本下拉框
+  async function updateModelVersions(model) {
+    try {
+      // 清空现有选项
+      modelVersionSelect.innerHTML = '';
+      
+      // 获取模型版本信息
+      const response = await chrome.runtime.sendMessage({
+        action: "getModelVersions",
+        model: model
+      });
+      
+      if (response.success && response.versions.length > 0) {
+        // 添加版本选项
+        response.versions.forEach(version => {
+          const option = document.createElement('option');
+          option.value = version;
+          option.textContent = version;
+          modelVersionSelect.appendChild(option);
+        });
+        
+        // 显示版本选择框
+        modelVersionSelect.parentElement.style.display = 'block';
+      } else {
+        // 隐藏版本选择框
+        modelVersionSelect.parentElement.style.display = 'none';
+      }
+    } catch (error) {
+      console.error('Failed to get model versions:', error);
+      // 隐藏版本选择框
+      modelVersionSelect.parentElement.style.display = 'none';
+    }
+  }
   
   // 加载已保存的API Key
   async function loadApiKey(model) {
@@ -308,6 +346,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const sourceLang = sourceLangSelect.value;
     const targetLang = targetLangSelect.value;
     const selectedModel = modelSelect.value; // 获取选择的大模型
+    const selectedModelVersion = modelVersionSelect.value; // 获取选择的模型版本
     
     // 每次点击翻译按钮时都重新获取当前选中的文本
     try {
@@ -340,7 +379,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         text: currentText,
         sourceLang: sourceLang,
         targetLang: targetLang,
-        model: selectedModel // 传递选择的大模型
+        model: selectedModel, // 传递选择的大模型
+        modelVersion: selectedModelVersion // 传递选择的模型版本
       });
       
       // 检查响应
@@ -428,6 +468,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     translateBtn.disabled = false;
   }
 
-  // 页面加载完成后加载API Key
+  // 页面加载完成后加载API Key和模型版本
   loadApiKey('kimi'); // 默认加载Kimi的API Key
+  updateModelVersions('kimi'); // 默认加载Kimi的模型版本
 });
