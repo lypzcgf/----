@@ -194,22 +194,30 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // 标签页切换逻辑
   function initTabs() {
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const tabPanes = document.querySelectorAll('.tab-pane');
+    // 获取所有的标签页容器
+    const tabContainers = document.querySelectorAll('.tab-container');
     
-    tabButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const tabId = button.getAttribute('data-tab');
-        
-        // 更新按钮状态
-        tabButtons.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-        
-        // 显示对应的内容面板
-        tabPanes.forEach(pane => {
-          pane.classList.remove('active');
-          if (pane.id === `${tabId}-tab`) {
-            pane.classList.add('active');
+    tabContainers.forEach(container => {
+      const tabButtons = container.querySelectorAll('.tab-button');
+      const allPanes = document.querySelectorAll('.tab-pane');
+      
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const tabId = button.getAttribute('data-tab');
+          
+          // 更新同一容器内按钮的状态
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          button.classList.add('active');
+          
+          // 显示对应的内容面板
+          allPanes.forEach(pane => {
+            pane.classList.remove('active');
+          });
+          
+          // 显示对应标签页
+          const targetPane = document.getElementById(`${tabId}-tab`);
+          if (targetPane) {
+            targetPane.classList.add('active');
           }
         });
       });

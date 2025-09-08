@@ -271,129 +271,139 @@
     <div class="container">
         <h1>上网助手</h1>
         
-        <!-- 大模型配置区域 -->
-        <div class="section">
-            <h2>大模型配置</h2>
-            <div class="form-group">
-                <label for="modelSelect">选择大模型:</label>
-                <select id="modelSelect">
-                    <option value="kimi">Kimi</option>
-                    <option value="deepseek">DeepSeek</option>
-                    <option value="qwen">Qwen</option>
-                    <option value="doubao">Doubao</option>
-                </select>
-            </div>
-            
-            <!-- Kimi API Key 配置 -->
-            <div id="kimiApiKeySection" class="api-config">
-                <div class="api-key-label">
-                    <span style="color: #ffc107;">🔑</span> Kimi API Key
+        <!-- 配置切换区域 -->
+        <div class="tab-container">
+            <button class="tab-button active" data-tab="model">大模型配置</button>
+            <button class="tab-button" data-tab="feishu">飞书配置</button>
+        </div>
+        
+        <!-- 大模型配置标签页 -->
+        <div id="model-tab" class="tab-pane active">
+            <div class="section">
+                <h2>大模型配置</h2>
+                <div class="form-group">
+                    <label for="modelSelect">选择大模型:</label>
+                    <select id="modelSelect">
+                        <option value="kimi">Kimi</option>
+                        <option value="deepseek">DeepSeek</option>
+                        <option value="qwen">Qwen</option>
+                        <option value="doubao">Doubao</option>
+                    </select>
                 </div>
-                <input type="password" id="apiKeyInput" class="api-key-input" placeholder="请输入您的Kimi API Key">
-                <div class="custom-model-input">
-                    <label for="kimiBaseUrl">Kimi Base URL:</label>
-                    <input type="text" id="kimiBaseUrl" class="api-key-input" placeholder="例如: https://api.moonshot.cn/v1" value="https://api.moonshot.cn/v1">
+                
+                <!-- Kimi API Key 配置 -->
+                <div id="kimiApiKeySection" class="api-config">
+                    <div class="api-key-label">
+                        <span style="color: #ffc107;">🔑</span> Kimi API Key
+                    </div>
+                    <input type="password" id="apiKeyInput" class="api-key-input" placeholder="请输入您的Kimi API Key">
+                    <div class="custom-model-input">
+                        <label for="kimiBaseUrl">Kimi Base URL:</label>
+                        <input type="text" id="kimiBaseUrl" class="api-key-input" placeholder="例如: https://api.moonshot.cn/v1" value="https://api.moonshot.cn/v1">
+                    </div>
+                    <div class="custom-model-input">
+                        <label for="kimiModelEndpoint">Kimi 模型端点:</label>
+                        <input type="text" id="kimiModelEndpoint" class="api-key-input" placeholder="例如: moonshot-v1-8k" value="moonshot-v1-8k">
+                    </div>
+                    <div class="api-key-actions">
+                        <button id="saveBtn" class="btn-primary">保存</button>
+                        <button id="testBtn" class="btn-success">测试连接</button>
+                        <button id="debugBtn" class="debug-btn">调试</button>
+                        <button id="logBtn" class="log-btn">导出日志</button>
+                    </div>
                 </div>
-                <div class="custom-model-input">
-                    <label for="kimiModelEndpoint">Kimi 模型端点:</label>
-                    <input type="text" id="kimiModelEndpoint" class="api-key-input" placeholder="例如: moonshot-v1-8k" value="moonshot-v1-8k">
+                
+                <!-- DeepSeek API Key 配置 -->
+                <div id="deepseekApiKeySection" class="api-config" style="display: none;">
+                    <div class="api-key-label">
+                        <span style="color: #ffc107;">🔑</span> DeepSeek API Key
+                    </div>
+                    <input type="password" id="deepseekApiKeyInput" class="api-key-input" placeholder="请输入您的DeepSeek API Key">
+                    <div class="custom-model-input">
+                        <label for="deepseekBaseUrl">DeepSeek Base URL:</label>
+                        <input type="text" id="deepseekBaseUrl" class="api-key-input" placeholder="例如: https://api.deepseek.com/v1" value="https://api.deepseek.com/v1">
+                    </div>
+                    <div class="custom-model-input">
+                        <label for="deepseekModelEndpoint">DeepSeek 模型端点:</label>
+                        <input type="text" id="deepseekModelEndpoint" class="api-key-input" placeholder="例如: deepseek-chat" value="deepseek-chat">
+                    </div>
+                    <div class="api-key-actions">
+                        <button id="saveDeepseekBtn" class="btn-primary">保存</button>
+                        <button id="testDeepseekBtn" class="btn-success">测试连接</button>
+                    </div>
                 </div>
-                <div class="api-key-actions">
-                    <button id="saveBtn" class="btn-primary">保存</button>
-                    <button id="testBtn" class="btn-success">测试连接</button>
-                    <button id="debugBtn" class="btn-secondary debug-btn">开启调试</button>
-                    <button id="logBtn" class="btn-info log-btn">导出日志</button>
+                
+                <!-- Qwen API Key 配置 -->
+                <div id="qwenApiKeySection" class="api-config" style="display: none;">
+                    <div class="api-key-label">
+                        <span style="color: #ffc107;">🔑</span> Qwen API Key
+                    </div>
+                    <input type="password" id="qwenApiKeyInput" class="api-key-input" placeholder="请输入您的Qwen API Key">
+                    <div class="custom-model-input">
+                        <label for="qwenBaseUrl">Qwen Base URL:</label>
+                        <input type="text" id="qwenBaseUrl" class="api-key-input" placeholder="例如: https://dashscope.aliyuncs.com/compatible-mode/v1" value="https://dashscope.aliyuncs.com/compatible-mode/v1">
+                    </div>
+                    <div class="custom-model-input">
+                        <label for="qwenModelEndpoint">Qwen 模型端点:</label>
+                        <input type="text" id="qwenModelEndpoint" class="api-key-input" placeholder="例如: qwen-turbo" value="qwen-turbo">
+                    </div>
+                    <div class="api-key-actions">
+                        <button id="saveQwenBtn" class="btn-primary">保存</button>
+                        <button id="testQwenBtn" class="btn-success">测试连接</button>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- DeepSeek API Key 配置 -->
-            <div id="deepseekApiKeySection" class="api-config" style="display: none;">
-                <div class="api-key-label">
-                    <span style="color: #ffc107;">🔑</span> DeepSeek API Key
-                </div>
-                <input type="password" id="deepseekApiKeyInput" class="api-key-input" placeholder="请输入您的DeepSeek API Key">
-                <div class="custom-model-input">
-                    <label for="deepseekBaseUrl">DeepSeek Base URL:</label>
-                    <input type="text" id="deepseekBaseUrl" class="api-key-input" placeholder="例如: https://api.deepseek.com/v1" value="https://api.deepseek.com/v1">
-                </div>
-                <div class="custom-model-input">
-                    <label for="deepseekModelEndpoint">DeepSeek 模型端点:</label>
-                    <input type="text" id="deepseekModelEndpoint" class="api-key-input" placeholder="例如: deepseek-chat" value="deepseek-chat">
-                </div>
-                <div class="api-key-actions">
-                    <button id="saveDeepseekBtn" class="btn-primary">保存</button>
-                    <button id="testDeepseekBtn" class="btn-success">测试连接</button>
-                </div>
-            </div>
-            
-            <!-- Qwen API Key 配置 -->
-            <div id="qwenApiKeySection" class="api-config" style="display: none;">
-                <div class="api-key-label">
-                    <span style="color: #ffc107;">🔑</span> Qwen API Key
-                </div>
-                <input type="password" id="qwenApiKeyInput" class="api-key-input" placeholder="请输入您的Qwen API Key">
-                <div class="custom-model-input">
-                    <label for="qwenBaseUrl">Qwen Base URL:</label>
-                    <input type="text" id="qwenBaseUrl" class="api-key-input" placeholder="例如: https://dashscope.aliyuncs.com/compatible-mode/v1" value="https://dashscope.aliyuncs.com/compatible-mode/v1">
-                </div>
-                <div class="custom-model-input">
-                    <label for="qwenModelEndpoint">Qwen 模型端点:</label>
-                    <input type="text" id="qwenModelEndpoint" class="api-key-input" placeholder="例如: qwen-turbo" value="qwen-turbo">
-                </div>
-                <div class="api-key-actions">
-                    <button id="saveQwenBtn" class="btn-primary">保存</button>
-                    <button id="testQwenBtn" class="btn-success">测试连接</button>
-                </div>
-            </div>
-            
-            <!-- Doubao API Key 配置 -->
-            <div id="doubaoApiKeySection" class="api-config" style="display: none;">
-                <div class="api-key-label">
-                    <span style="color: #ffc107;">🔑</span> Doubao API Key
-                </div>
-                <input type="password" id="doubaoApiKeyInput" class="api-key-input" placeholder="请输入您的Doubao API Key">
-                <div class="custom-model-input">
-                    <label for="doubaoBaseUrl">Doubao Base URL:</label>
-                    <input type="text" id="doubaoBaseUrl" class="api-key-input" placeholder="例如: https://ark.cn-beijing.volces.com/api/v3">
-                </div>
-                <div class="custom-model-input">
-                    <label for="doubaoModelEndpoint">Doubao 模型端点:</label>
-                    <input type="text" id="doubaoModelEndpoint" class="api-key-input" placeholder="例如: ep-20250728134921-f2nvq">
-                </div>
-                <div class="api-key-actions">
-                    <button id="saveDoubaoBtn" class="btn-primary">保存</button>
-                    <button id="testDoubaoBtn" class="btn-success">测试连接</button>
+                
+                <!-- Doubao API Key 配置 -->
+                <div id="doubaoApiKeySection" class="api-config" style="display: none;">
+                    <div class="api-key-label">
+                        <span style="color: #ffc107;">🔑</span> Doubao API Key
+                    </div>
+                    <input type="password" id="doubaoApiKeyInput" class="api-key-input" placeholder="请输入您的Doubao API Key">
+                    <div class="custom-model-input">
+                        <label for="doubaoBaseUrl">Doubao Base URL:</label>
+                        <input type="text" id="doubaoBaseUrl" class="api-key-input" placeholder="例如: https://ark.cn-beijing.volces.com/api/v3">
+                    </div>
+                    <div class="custom-model-input">
+                        <label for="doubaoModelEndpoint">Doubao 模型端点:</label>
+                        <input type="text" id="doubaoModelEndpoint" class="api-key-input" placeholder="例如: ep-20250728134921-f2nvq">
+                    </div>
+                    <div class="api-key-actions">
+                        <button id="saveDoubaoBtn" class="btn-primary">保存</button>
+                        <button id="testDoubaoBtn" class="btn-success">测试连接</button>
+                    </div>
                 </div>
             </div>
         </div>
         
-        <!-- 飞书多维表格配置区域 -->
-        <div class="section">
-            <h2>飞书多维表格配置</h2>
-            
-            <!-- 飞书多维表格配置区域 -->
-            <div class="feishu-config">
-                <div class="form-group">
-                    <label for="feishuAppId">飞书应用ID:</label>
-                    <input type="text" id="feishuAppId" placeholder="请输入飞书应用ID">
-                </div>
+        <!-- 飞书多维表格配置标签页 -->
+        <div id="feishu-tab" class="tab-pane">
+            <div class="section">
+                <h2>飞书多维表格配置</h2>
                 
-                <div class="form-group">
-                    <label for="feishuAppSecret">飞书应用密钥:</label>
-                    <input type="password" id="feishuAppSecret" placeholder="请输入飞书应用密钥">
+                <!-- 飞书多维表格配置区域 -->
+                <div class="feishu-config">
+                    <div class="form-group">
+                        <label for="feishuAppId">飞书应用ID:</label>
+                        <input type="text" id="feishuAppId" placeholder="请输入飞书应用ID">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="feishuAppSecret">飞书应用密钥:</label>
+                        <input type="password" id="feishuAppSecret" placeholder="请输入飞书应用密钥">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="feishuBitableToken">多维表格Token:</label>
+                        <input type="text" id="feishuBitableToken" placeholder="请输入多维表格Token">
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="saveFeishuConfig" class="btn btn-primary">保存配置</button>
+                        <button id="testFeishuConnection" class="btn btn-secondary">测试连接</button>
+                    </div>
+                    
+                    <div id="feishuStatus" class="status" style="display: none;"></div>
                 </div>
-                
-                <div class="form-group">
-                    <label for="feishuBitableToken">多维表格Token:</label>
-                    <input type="text" id="feishuBitableToken" placeholder="请输入多维表格Token">
-                </div>
-                
-                <div class="button-group">
-                    <button id="saveFeishuConfig" class="btn btn-primary">保存配置</button>
-                    <button id="testFeishuConnection" class="btn btn-secondary">测试连接</button>
-                </div>
-                
-                <div id="feishuStatus" class="status" style="display: none;"></div>
             </div>
         </div>
 
