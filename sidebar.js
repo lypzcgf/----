@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   // 网页原文相关元素
   const originalText = document.getElementById('originalText');
+  const getSelectedTextBtn = document.getElementById('getSelectedTextBtn');
   const copyOriginalBtn = document.getElementById('copyOriginalBtn');
   const clearOriginalBtn = document.getElementById('clearOriginalBtn');
   
@@ -66,6 +67,43 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   // 页面加载时尝试获取当前页面选中的文本
   let currentText = '';
+  
+  // 获取选中文字按钮点击事件
+  getSelectedTextBtn.addEventListener('click', async function() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      // 获取文本
+      const selectedText = await getTextWithFallback(tab.id);
+      
+      if (selectedText && selectedText.trim()) {
+        currentText = selectedText.trim();
+        originalText.textContent = currentText;
+        originalText.style.color = 'black';
+        
+        // 给用户一个视觉反馈
+        const originalBtnText = getSelectedTextBtn.textContent;
+        getSelectedTextBtn.textContent = '✅ 已获取';
+        setTimeout(() => {
+          getSelectedTextBtn.textContent = originalBtnText;
+        }, 2000);
+      } else {
+        originalText.textContent = '未找到选中的文本';
+        originalText.style.color = '#999';
+        
+        // 给用户一个视觉反馈
+        const originalBtnText = getSelectedTextBtn.textContent;
+        getSelectedTextBtn.textContent = '❌ 无选中文本';
+        setTimeout(() => {
+          getSelectedTextBtn.textContent = originalBtnText;
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('获取选中文本失败:', error);
+      originalText.textContent = '获取文本失败: ' + (error.message || '未知错误');
+      originalText.style.color = '#999';
+    }
+  });
   
   // 初始化标签页切换功能
   initTabs();
