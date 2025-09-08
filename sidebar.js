@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', async function() {
   // 获取DOM元素
   const modelSelect = document.getElementById('modelSelect');
-  const modelStatus = document.getElementById('modelStatus');
   
   // API Key相关元素
   const apiKeyInput = document.getElementById('apiKeyInput');
@@ -20,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   const deepseekModelEndpoint = document.getElementById('deepseekModelEndpoint');
   const qwenModelEndpoint = document.getElementById('qwenModelEndpoint');
   const doubaoModelEndpoint = document.getElementById('doubaoModelEndpoint');
-  
+
   const saveBtn = document.getElementById('saveBtn');
   const testBtn = document.getElementById('testBtn');
   const saveDeepseekBtn = document.getElementById('saveDeepseekBtn');
@@ -45,7 +44,6 @@ document.addEventListener('DOMContentLoaded', async function() {
   const translateBtn = document.getElementById('translateBtn');
   const translationResult = document.getElementById('translationResult');
   const copyTranslationBtn = document.getElementById('copyTranslationBtn');
-  const clearTranslationBtn = document.getElementById('clearTranslationBtn');
   
   // 翻译统计信息元素
   const translationTimeEl = document.getElementById('translationTime');
@@ -59,12 +57,19 @@ document.addEventListener('DOMContentLoaded', async function() {
   const rewriteBtn = document.getElementById('rewriteBtn');
   const rewriteResult = document.getElementById('rewriteResult');
   const copyRewriteBtn = document.getElementById('copyRewriteBtn');
-  const clearRewriteBtn = document.getElementById('clearRewriteBtn');
   
   // 改写统计信息元素
   const rewriteTime = document.getElementById('rewriteTime');
   const originalCharCount = document.getElementById('originalCharCount');
   const rewriteCharCount = document.getElementById('rewriteCharCount');
+  
+  // 飞书多维表格配置相关元素
+  const feishuAppId = document.getElementById('feishuAppId');
+  const feishuAppSecret = document.getElementById('feishuAppSecret');
+  const feishuBitableToken = document.getElementById('feishuBitableToken');
+  const saveFeishuConfigBtn = document.getElementById('saveFeishuConfig');
+  const testFeishuConnectionBtn = document.getElementById('testFeishuConnection');
+  const feishuStatus = document.getElementById('feishuStatus');
   
   // 页面加载时尝试获取当前页面选中的文本
   let currentText = '';
@@ -795,16 +800,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     originalText.style.color = '#999';
   });
   
-  // 清空译文按钮点击事件
-  clearTranslationBtn.addEventListener('click', function() {
-    translationResult.textContent = '点击"开始翻译"按钮来翻译选中的文本';
-  });
-  
-  // 清空改写结果按钮点击事件
-  clearRewriteBtn.addEventListener('click', function() {
-    rewriteResult.textContent = '点击"开始改写"按钮来改写选中的文本';
-  });
-  
   // 显示翻译结果
   function displayTranslationResult(result) {
     resetTranslateButton();
@@ -864,6 +859,51 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   });
 
+  // 加载飞书多维表格配置
+  await loadFeishuConfig();
+  
+  // 飞书多维表格配置保存按钮事件
+  saveFeishuConfigBtn.addEventListener('click', async function() {
+    const config = {
+      appId: feishuAppId.value.trim(),
+      appSecret: feishuAppSecret.value.trim(),
+      bitableToken: feishuBitableToken.value.trim()
+    };
+    
+    try {
+      await chrome.storage.local.set({ feishuConfig: config });
+      showFeishuStatus('配置保存成功', 'success');
+    } catch (error) {
+      console.error('保存飞书配置失败:', error);
+      showFeishuStatus('配置保存失败: ' + error.message, 'error');
+    }
+  });
+  
+  // 飞书多维表格连接测试按钮事件
+  testFeishuConnectionBtn.addEventListener('click', async function() {
+    showFeishuStatus('正在测试连接...', 'info');
+    
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'testFeishuConnection',
+        config: {
+          appId: feishuAppId.value.trim(),
+          appSecret: feishuAppSecret.value.trim(),
+          bitableToken: feishuBitableToken.value.trim()
+        }
+      });
+      
+      if (response.success) {
+        showFeishuStatus('连接测试成功', 'success');
+      } else {
+        showFeishuStatus('连接测试失败: ' + response.error, 'error');
+      }
+    } catch (error) {
+      console.error('测试飞书连接失败:', error);
+      showFeishuStatus('连接测试失败: ' + error.message, 'error');
+    }
+  });
+  
   // 改写按钮点击事件
   rewriteBtn.addEventListener('click', async function() {
     const prompt = rewritePrompt.value;
@@ -923,3 +963,38 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   });
 });
+
+// 加载飞书多维表格配置
+async function loadFeishuConfig() {
+  try {
+    const result = await chrome.storage.local.get(['feishuConfig']);
+    const config = result.feishuConfig || {
+      enabled: false,
+      appId: '',
+      appSecret: '',
+      bitableToken: ''
+    };
+    
+
+    document.getElementById('feishuAppId').value = config.appId || '';
+    document.getElementById('feishuAppSecret').value = config.appSecret || '';
+    document.getElementById('feishuBitableToken').value = config.bitableToken || '';
+  } catch (error) {
+    console.error('加载飞书配置失败:', error);
+  }
+}
+
+// 显示飞书配置状态
+function showFeishuStatus(message, type) {
+  const statusElement = document.getElementById('feishuStatus');
+  statusElement.textContent = message;
+  statusElement.className = 'status ' + type;
+  statusElement.style.display = 'block';
+  
+  // 3秒后自动隐藏成功状态
+  if (type === 'success') {
+    setTimeout(() => {
+      statusElement.style.display = 'none';
+    }, 3000);
+  }
+}

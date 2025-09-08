@@ -7,11 +7,13 @@
     "activeTab",
     "scripting",
     "storage",
-    "sidePanel"
+    "sidePanel",
+    "https://open.feishu.cn/*"
   ],
   "host_permissions": [
     "https://api.moonshot.cn/*",
     "https://dashscope.aliyuncs.com/*", 
+    "https://open.feishu.cn/*",
     "<all_urls>"
   ],
   "icons": {

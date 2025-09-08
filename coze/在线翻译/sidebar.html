@@ -1,0 +1,100 @@
+<div class="form-group">
+    <label for="feishuAppSecret">飞书应用密钥:</label>
+    <input type="password" id="feishuAppSecret" placeholder="请输入飞书应用密钥">
+</div>
+                
+<div class="form-group">
+    <label for="feishuBitableToken">多维表格Token:</label>
+    <input type="text" id="feishuBitableToken" placeholder="请输入多维表格Token">
+</div>
+                
+<div class="button-group">
+    <button id="saveFeishuConfig" class="btn btn-primary">保存配置</button>
+    <button id="testFeishuConnection" class="btn btn-secondary">测试连接</button>
+</div>
+                
+<div id="feishuStatus" class="status" style="display: none;"></div>
+</div>
+
+<!-- 网页原文区域 -->
+<div class="section">
+    <h2>网页原文</h2>
+    <div class="result-container">
+        <div id="originalText">请在网页中选择需要处理的文本</div>
+    </div>
+    <div style="margin-top: 15px;">
+        <button id="getSelectedTextBtn" class="btn-secondary">获取选中文字</button>
+        <button id="getFullTextBtn" class="btn-secondary">获取全文</button>
+        <button id="copyOriginalBtn" class="btn-secondary">📋 复制原文</button>
+        <!-- 删除: <button id="clearOriginalBtn" class="btn-secondary">🗑️ 清空</button> -->
+    </div>
+</div>
+
+
+<!-- 翻译功能区域 -->
+<div class="section">
+    <h2>翻译</h2>
+    <div class="form-group">
+        <label for="sourceLang">源语言:</label>
+        <select id="sourceLang">
+            <option value="auto">自动检测</option>
+            <option value="zh">中文</option>
+            <option value="en">英文</option>
+            <option value="es">西班牙语</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="targetLang">目标语言:</label>
+        <select id="targetLang">
+            <option value="zh">中文</option>
+            <option value="en">英文</option>
+            <option value="es">西班牙语</option>
+        </select>
+    </div>
+    
+    <button id="translateBtn" class="btn-primary">🔄 开始翻译</button>
+    
+    <div class="result-container">
+        <div id="translationResult">点击"开始翻译"按钮来翻译选中的文本</div>
+    </div>
+    <div style="margin-top: 15px;">
+        <button id="copyTranslationBtn" class="btn-secondary">📋 复制译文</button>
+        <!-- 删除: <button id="clearTranslationBtn" class="btn-secondary">🗑️ 清空</button> -->
+    </div>
+    
+    <div class="stats">
+        <div class="stats-item">翻译时间: <span id="translationTime">-</span></div>
+        <div class="stats-item">字符数: <span id="charCount">-</span></div>
+        <div class="stats-item">单词数: <span id="wordCount">-</span></div>
+        <div class="stats-item">段落: <span id="paragraphCount">-</span></div>
+        <div class="stats-item">行数: <span id="lineCount">-</span></div>
+    </div>
+</div>
+
+
+<!-- 改写功能区域 -->
+<div class="section">
+    <h2>改写</h2>
+    <div class="form-group">
+        <label for="rewritePrompt">改写提示词:</label>
+        <textarea id="rewritePrompt" class="prompt-textarea" placeholder="请输入改写指令，例如：请将以下文本改写得更加正式和专业..."></textarea>
+    </div>
+    
+    <button id="rewriteBtn" class="btn-primary">🔄 开始改写</button>
+    
+    <div class="result-container">
+        <div id="rewriteResult">点击"开始改写"按钮来改写选中的文本</div>
+    </div>
+    <div style="margin-top: 15px;">
+        <button id="copyRewriteBtn" class="btn-secondary">📋 复制改写结果</button>
+        <!-- 删除: <button id="clearRewriteBtn" class="btn-secondary">🗑️ 清空</button> -->
+    </div>
+    
+    <div class="stats">
+        <div class="stats-item">改写时间: <span id="rewriteTime">-</span></div>
+        <div class="stats-item">原字符数: <span id="originalCharCount">-</span></div>
+        <div class="stats-item">改写后字符数: <span id="rewriteCharCount">-</span></div>
+    </div>
+</div>
+

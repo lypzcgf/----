@@ -46,7 +46,7 @@ class BackgroundManager {
     }
 
     // 统一的消息处理方法
-    handleMessage(request, sender, sendResponse) {
+    async handleMessage(request, sender, sendResponse) {
         switch (request.action) {
             case 'translate':
                 this.handleTranslate(request, sender, sendResponse);
@@ -63,6 +63,14 @@ class BackgroundManager {
                 this.testConnection(request.model, request.apiKey, request.modelEndpoint, request.baseUrl)
                     .then(result => sendResponse(result))
                     .catch(error => sendResponse({ success: false, message: error.message }));
+                return true;
+            case 'testFeishuConnection':
+                try {
+                    const result = await this.testFeishuConnection(request.config);
+                    sendResponse({ success: true, data: result });
+                } catch (error) {
+                    sendResponse({ success: false, error: error.message });
+                }
                 return true;
             case 'loadModelConfig':
                 this.loadModelConfig(request.model)
@@ -609,6 +617,59 @@ class BackgroundManager {
             };
         } catch (error) {
             throw new Error(`翻译失败: ${error.message}`);
+        }
+    }
+    
+    // 测试飞书连接
+    async testFeishuConnection(config) {
+        try {
+            // 验证配置
+            if (!config.appId || !config.appSecret || !config.bitableToken) {
+                throw new Error('飞书配置不完整，请检查应用ID、应用密钥和多维表格Token');
+            }
+            
+            // 获取tenant_access_token
+            const tokenResponse = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'charset': 'utf-8'
+                },
+                body: JSON.stringify({
+                    app_id: config.appId,
+                    app_secret: config.appSecret
+                })
+            });
+            
+            const tokenData = await tokenResponse.json();
+            
+            if (tokenData.code !== 0) {
+                throw new Error(`获取访问令牌失败: ${tokenData.msg}`);
+            }
+            
+            // 使用令牌测试多维表格访问
+            const testResponse = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${config.bitableToken}/tables`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${tokenData.tenant_access_token}`,
+                    'Content-Type': 'application/json',
+                    'charset': 'utf-8'
+                }
+            });
+            
+            const testData = await testResponse.json();
+            
+            if (testData.code !== 0) {
+                throw new Error(`访问多维表格失败: ${testData.msg}`);
+            }
+            
+            return {
+                message: '连接测试成功',
+                tables: testData.data.items
+            };
+        } catch (error) {
+            console.error('飞书连接测试失败:', error);
+            throw error;
         }
     }
 }
