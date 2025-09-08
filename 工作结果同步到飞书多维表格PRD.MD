@@ -264,10 +264,249 @@
 ### 6.2 API接口设计
 
 #### 6.2.1 飞书多维表格API调用
-- 创建记录接口：`POST /open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/records`
-- 查询记录接口：`GET /open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/records`
-- 更新记录接口：`PUT /open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/records/{record_id}`
-- 删除记录接口：`DELETE /open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/records/{record_id}`
+
+**获取飞书访问令牌的URL：**
+```
+https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal
+```
+
+这个URL用于获取飞书的租户访问令牌（tenant_access_token），通过POST请求发送app_id和app_secret来获取访问令牌。
+
+**其他相关的飞书API链接：**
+
+1. **飞书开放平台主页：** `https://open.feishu.cn/`
+2. **多维表格相关API：**
+   - 获取表格信息：`https://open.feishu.cn/open-apis/bitable/v1/apps/{tableToken}/tables/{tableId}`
+   - 创建记录：`https://open.feishu.cn/open-apis/bitable/v1/apps/{tableToken}/tables/{tableId}/records`
+   - 更新记录：`https://open.feishu.cn/open-apis/bitable/v1/apps/{tableToken}/tables/{tableId}/records/{recordId}`
+   - 删除记录：`https://open.feishu.cn/open-apis/bitable/v1/apps/{tableToken}/tables/{tableId}/records/{recordId}`
+
+3. **文档链接：**
+   - 飞书开放平台文档：`https://open.feishu.cn/document/`
+   - 飞书多维表格API文档：`https://open.feishu.cn/document/server-docs/docs/bitable-v1/`
+
+4.参考代码示例：
+```javascript
+// 测试飞书连接
+async function testFeishuConnection(config) {
+  try {
+    if (!config.appId || !config.appSecret) {
+      throw new Error('请提供完整的飞书应用配置');
+    }
+    
+    const accessToken = await getFeishuAccessToken(config.appId, config.appSecret);
+    
+    if (config.tableToken && config.tableId) {
+      // 测试表格访问
+      await testTableAccess(accessToken, config.tableToken, config.tableId);
+    }
+    
+    return { connected: true, message: '连接成功' };
+  } catch (error) {
+    console.error('飞书连接测试失败:', error);
+    throw error;
+  }
+}
+
+// 获取飞书访问令牌
+async function getFeishuAccessToken(appId, appSecret) {
+  try {
+    const response = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        app_id: appId,
+        app_secret: appSecret
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.code === 0) {
+      return data.tenant_access_token;
+    } else {
+      throw new Error(data.msg || '获取访问令牌失败');
+    }
+  } catch (error) {
+    console.error('获取飞书访问令牌失败:', error);
+    throw error;
+  }
+}
+
+// 测试表格访问权限
+async function testTableAccess(accessToken, tableToken, tableId) {
+  try {
+    const response = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${tableToken}/tables/${tableId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (data.code !== 0) {
+      throw new Error(data.msg || '表格访问失败');
+    }
+    
+    return data.data;
+  } catch (error) {
+    console.error('测试表格访问失败:', error);
+    throw error;
+  }
+}
+
+// 同步到飞书表格
+async function syncToFeishu(bookmark, operation) {
+  try {
+    const result = await chrome.storage.local.get(['feishuConfig']);
+    const config = result.feishuConfig;
+    
+    if (!config || !config.appId || !config.appSecret || !config.tableToken || !config.tableId) {
+      console.warn('飞书配置不完整，跳过同步');
+      return;
+    }
+    
+    const accessToken = await getFeishuAccessToken(config.appId, config.appSecret);
+    
+    switch (operation) {
+      case 'create':
+        await createFeishuRecord(accessToken, config, bookmark);
+        break;
+      case 'update':
+        await updateFeishuRecord(accessToken, config, bookmark);
+        break;
+      case 'delete':
+        await deleteFeishuRecord(accessToken, config, bookmark);
+        break;
+    }
+  } catch (error) {
+    console.error('飞书同步失败:', error);
+    throw error;
+  }
+}
+
+// 创建飞书记录
+async function createFeishuRecord(accessToken, config, bookmark) {
+  try {
+    const response = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${config.tableToken}/tables/${config.tableId}/records`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        fields: {
+          '标题': bookmark.title,
+          '网址': bookmark.url,
+          '标签': bookmark.tags ? bookmark.tags.join(', ') : '',
+          '备注': bookmark.notes || '',
+          '创建时间': bookmark.createdAt
+        }
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.code === 0) {
+      // 保存飞书记录ID到本地
+      bookmark.feishuRecordId = data.data.record.record_id;
+      
+      const result = await chrome.storage.local.get(['bookmarks']);
+      const bookmarks = result.bookmarks || [];
+      const index = bookmarks.findIndex(b => b.id === bookmark.id);
+      
+      if (index !== -1) {
+        bookmarks[index].feishuRecordId = bookmark.feishuRecordId;
+        await chrome.storage.local.set({ bookmarks });
+      }
+    } else {
+      throw new Error(data.msg || '创建飞书记录失败');
+    }
+  } catch (error) {
+    console.error('创建飞书记录失败:', error);
+    throw error;
+  }
+}
+
+// 更新飞书记录
+async function updateFeishuRecord(accessToken, config, bookmark) {
+  if (!bookmark.feishuRecordId) {
+    console.warn('缺少飞书记录ID，跳过更新');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${config.tableToken}/tables/${config.tableId}/records/${bookmark.feishuRecordId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        fields: {
+          '标题': bookmark.title,
+          '网址': bookmark.url,
+          '标签': bookmark.tags ? bookmark.tags.join(', ') : '',
+          '备注': bookmark.notes || '',
+          '更新时间': bookmark.updatedAt
+        }
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.code !== 0) {
+      throw new Error(data.msg || '更新飞书记录失败');
+    }
+  } catch (error) {
+    console.error('更新飞书记录失败:', error);
+    throw error;
+  }
+}
+
+// 删除飞书记录
+async function deleteFeishuRecord(accessToken, config, bookmark) {
+  if (!bookmark.feishuRecordId) {
+    console.warn('缺少飞书记录ID，跳过删除');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${config.tableToken}/tables/${config.tableId}/records/${bookmark.feishuRecordId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (data.code !== 0) {
+      throw new Error(data.msg || '删除飞书记录失败');
+    }
+  } catch (error) {
+    console.error('删除飞书记录失败:', error);
+    throw error;
+  }
+}
+
+// 监听存储变化，用于数据同步
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local') {
+    console.log('本地存储发生变化:', changes);
+  }
+});
+
+// 处理插件卸载
+chrome.runtime.onSuspend.addListener(() => {
+  console.log('插件即将被挂起');
+});
+
+console.log('网页收藏夹后台服务已启动');
+```           
 
 #### 6.2.2 本地数据管理接口
 - 保存配置：`chrome.storage.local.set()`
