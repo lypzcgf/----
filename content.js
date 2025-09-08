@@ -1,3 +1,88 @@
+// Content Script - 注入到网页中运行
+console.log('Content script loaded');
+
+// 监听来自sidebar的消息
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Content script received message:', request);
+  
+  // 检查扩展上下文是否有效
+  if (chrome.runtime?.id) {
+    if (request.action === 'getTextForTranslation') {
+      try {
+        // 获取选中的文本
+        const selectedText = window.getSelection().toString();
+        
+        if (selectedText.trim()) {
+          sendResponse({ success: true, text: selectedText });
+        } else {
+          // 如果没有选中文本，获取页面主要内容
+          const article = document.querySelector('article') || 
+                         document.querySelector('[role="main"]') || 
+                         document.querySelector('.content') ||
+                         document.body;
+          
+          if (article) {
+            sendResponse({ success: true, text: article.innerText || article.textContent || '' });
+          } else {
+            sendResponse({ success: false, error: '未找到页面内容' });
+          }
+        }
+      } catch (error) {
+        console.error('获取文本时出错:', error);
+        sendResponse({ success: false, error: '获取文本失败: ' + error.message });
+      }
+    } else if (request.action === 'getFullText') {
+      try {
+        // 获取页面全文内容
+        const article = document.querySelector('article') || 
+                       document.querySelector('[role="main"]') || 
+                       document.querySelector('.content') ||
+                       document.querySelector('main') ||
+                       document.body;
+        
+        if (article) {
+          // 移除脚本和样式元素
+          const clone = article.cloneNode(true);
+          clone.querySelectorAll('script, style, nav, footer, header, aside').forEach(el => el.remove());
+          sendResponse({ success: true, text: clone.innerText || clone.textContent || '' });
+        } else {
+          sendResponse({ success: false, error: '未找到页面内容' });
+        }
+      } catch (error) {
+        console.error('获取全文时出错:', error);
+        sendResponse({ success: false, error: '获取全文失败: ' + error.message });
+      }
+    }
+    
+    // 返回true表示异步响应
+    return true;
+  } else {
+    // 扩展上下文已失效
+    console.log('Extension context invalidated');
+    return false;
+  }
+});
+
+// 监听文本选择变化事件
+document.addEventListener('selectionchange', () => {
+  // 检查扩展上下文是否有效
+  if (chrome.runtime?.id) {
+    // 添加一个小延迟以确保选择操作完成
+    setTimeout(() => {
+      const selectedText = window.getSelection().toString();
+      
+      // 无论是否有选中文本都发送消息到插件界面
+      chrome.runtime.sendMessage({
+        action: "displayText",
+        text: selectedText
+      }).catch(error => {
+        // 忽略错误，因为可能sidebar尚未打开
+        console.log('发送文本到插件界面失败:', error);
+      });
+    }, 50);
+  }
+});
+
 // Content Script - 在网页中运行的脚本
 class ContentManager {
     constructor() {
