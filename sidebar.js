@@ -399,9 +399,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             modelEndpoint: modelEndpoint
         });
         
-        alert('Doubao API Key、Base URL和模型端点保存成功！');
+        alert('Volces API Key、Base URL和模型端点保存成功！');
     } catch (error) {
-        console.error('Failed to save Doubao API Key:', error);
+        console.error('Failed to save Volces API Key:', error);
         alert('保存失败: ' + error.message);
     }
   });
@@ -560,13 +560,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
         
         if (result.success) {
-            alert('Doubao连接成功！' + result.message);
+            alert('Volces连接成功！' + result.message);
         } else {
-            alert('Doubao连接失败: ' + result.message);
+            alert('Volces连接失败: ' + result.message);
         }
     } catch (error) {
-        console.error('Test Doubao connection failed:', error);
-        alert('测试Doubao连接失败: ' + error.message);
+        console.error('Test Volces connection failed:', error);
+        alert('测试Volces连接失败: ' + error.message);
     }
   });
 
