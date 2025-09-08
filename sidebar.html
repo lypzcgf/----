@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能翻译助手</title>
+    <title>上网助手</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -37,7 +37,7 @@
             margin-bottom: 5px;
             font-weight: bold;
         }
-        input[type="text"], select {
+        input[type="text"], select, textarea {
             width: 100%;
             padding: 8px;
             border: 1px solid #ddd;
@@ -125,15 +125,51 @@
         .custom-model-input {
             margin-top: 10px;
         }
+        .prompt-textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            resize: vertical;
+        }
+        .tab-container {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            border: none;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+        }
+        .tab-button.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active {
+            display: block;
+        }
+        .model-status {
+            margin-left: 10px;
+            font-size: 12px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>智能翻译助手</h1>
+        <h1>上网助手</h1>
         
-        <!-- 大模型设置区域 -->
+        <!-- 大模型配置区域 -->
         <div class="section">
-            <h2>大模型设置</h2>
+            <h2>大模型配置</h2>
             <div class="form-group">
                 <label for="modelSelect">选择大模型:</label>
                 <select id="modelSelect">
@@ -142,6 +178,7 @@
                     <option value="qwen">Qwen</option>
                     <option value="doubao">Doubao</option>
                 </select>
+                <span id="modelStatus" class="model-status">未连接</span>
             </div>
             
             <!-- Kimi API Key 配置 -->
@@ -227,55 +264,104 @@
             </div>
         </div>
 
-        <!-- 翻译设置区域 -->
-        <div class="section">
-            <h2>翻译设置</h2>
-            <div class="form-group">
-                <label for="sourceLang">源语言:</label>
-                <select id="sourceLang">
-                    <option value="auto">自动检测</option>
-                    <option value="zh">中文</option>
-                    <option value="en">English</option>
-                    <option value="es">Español</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="targetLang">目标语言:</label>
-                <select id="targetLang">
-                    <option value="en">English</option>
-                    <option value="zh">中文</option>
-                    <option value="es">Español</option>
-                </select>
-            </div>
-            <button id="translateBtn" class="btn-primary">🔄 开始翻译</button>
-        </div>
-
         <!-- 网页原文区域 -->
         <div class="section">
             <h2>网页原文</h2>
             <div class="result-container">
-                <div id="originalText" style="color: #999;">请在网页中选择需要翻译的文本</div>
+                <div id="originalText" style="color: #999;">请在网页中选择需要处理的文本</div>
             </div>
             <div style="margin-top: 15px;">
                 <button id="copyOriginalBtn" class="btn-secondary">📋 复制原文</button>
+                <button id="clearOriginalBtn" class="btn-secondary" style="float: right;">🗑️ 清空</button>
             </div>
         </div>
 
-        <!-- 翻译结果区域 -->
-        <div class="section">
-            <h2>翻译结果</h2>
-            <div class="result-container">
-                <div id="translationResult">点击“开始翻译”按钮来翻译选中的文本</div>
+        <!-- 功能切换区域 -->
+        <div class="tab-container">
+            <button class="tab-button active" data-tab="translate">翻译</button>
+            <button class="tab-button" data-tab="rewrite">改写</button>
+        </div>
+
+        <!-- 翻译功能区域 -->
+        <div id="translate-tab" class="tab-pane active">
+            <div class="section">
+                <h2>翻译设置</h2>
+                <div class="form-group">
+                    <label for="sourceLang">源语言:</label>
+                    <select id="sourceLang">
+                        <option value="auto">自动检测</option>
+                        <option value="zh">中文</option>
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                        <option value="ru">Русский</option>
+                        <option value="ar">العربية</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="targetLang">目标语言:</label>
+                    <select id="targetLang">
+                        <option value="en">English</option>
+                        <option value="zh">中文</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                        <option value="ru">Русский</option>
+                        <option value="ar">العربية</option>
+                    </select>
+                </div>
+                <button id="translateBtn" class="btn-primary">🔄 开始翻译</button>
             </div>
-            <div style="margin-top: 15px;">
-                <button id="copyBtn" class="btn-secondary">📋 复制译文</button>
+
+            <!-- 翻译结果区域 -->
+            <div class="section">
+                <h2>翻译结果</h2>
+                <div class="result-container">
+                    <div id="translationResult">点击"开始翻译"按钮来翻译选中的文本</div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button id="copyTranslationBtn" class="btn-secondary">📋 复制译文</button>
+                    <button id="clearTranslationBtn" class="btn-secondary" style="float: right;">🗑️ 清空</button>
+                </div>
+                <div class="stats">
+                    <div class="stats-item">翻译时间: <span id="translationTime">-</span></div>
+                    <div class="stats-item">字符数: <span id="charCount">-</span></div>
+                    <div class="stats-item">单词数: <span id="wordCount">-</span></div>
+                    <div class="stats-item">段落数: <span id="paragraphCount">-</span></div>
+                    <div class="stats-item">行数: <span id="lineCount">-</span></div>
+                </div>
             </div>
-            <div class="stats">
-                <div class="stats-item">翻译时间: <span id="translationTime">-</span></div>
-                <div class="stats-item">字符数: <span id="charCount">-</span></div>
-                <div class="stats-item">单词数: <span id="wordCount">-</span></div>
-                <div class="stats-item">段落数: <span id="paragraphCount">-</span></div>
-                <div class="stats-item">行数: <span id="lineCount">-</span></div>
+        </div>
+
+        <!-- 改写功能区域 -->
+        <div id="rewrite-tab" class="tab-pane">
+            <div class="section">
+                <h2>改写设置</h2>
+                <div class="form-group">
+                    <label for="rewritePrompt">改写提示词:</label>
+                    <textarea id="rewritePrompt" class="prompt-textarea" placeholder="请输入改写指令，例如：请将以下文本改写得更加正式和专业...">请将以下文本改写得更加正式和专业
+要求：
+1. 保持原意不变
+2. 使用正式的商务语言
+3. 适当扩展内容以增强表达力</textarea>
+                </div>
+                <button id="rewriteBtn" class="btn-primary">🔄 开始改写</button>
+            </div>
+
+            <!-- 改写结果区域 -->
+            <div class="section">
+                <h2>改写结果</h2>
+                <div class="result-container">
+                    <div id="rewriteResult">点击"开始改写"按钮来改写选中的文本</div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button id="copyRewriteBtn" class="btn-secondary">📋 复制改写结果</button>
+                    <button id="clearRewriteBtn" class="btn-secondary" style="float: right;">🗑️ 清空</button>
+                </div>
+                <div class="stats">
+                    <div class="stats-item">改写时间: <span id="rewriteTime">-</span></div>
+                    <div class="stats-item">原字符数: <span id="originalCharCount">-</span></div>
+                    <div class="stats-item">改写后字符数: <span id="rewriteCharCount">-</span></div>
+                </div>
             </div>
         </div>
     </div>

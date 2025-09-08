@@ -43,24 +43,35 @@ class BackgroundManager {
                 console.log('Side panel behavior error:', error);
             });
         });
+    }
 
-        // 监听来自sidebar的配置请求
-        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-            if (request.action === "saveApiKey") {
-                this.saveApiKey(request.model, request.apiKey, request.modelEndpoint, request.baseUrl);
-                sendResponse({ success: true });
-            } else if (request.action === "testConnection") {
+    // 统一的消息处理方法
+    handleMessage(request, sender, sendResponse) {
+        switch (request.action) {
+            case 'translate':
+                this.handleTranslate(request, sender, sendResponse);
+                return true;
+            case 'rewrite':
+                this.handleRewrite(request, sender, sendResponse);
+                return true;
+            case 'saveApiKey':
+                this.saveApiKey(request.model, request.apiKey, request.modelEndpoint, request.baseUrl)
+                    .then(() => sendResponse({ success: true }))
+                    .catch(error => sendResponse({ success: false, error: error.message }));
+                return true;
+            case 'testConnection':
                 this.testConnection(request.model, request.apiKey, request.modelEndpoint, request.baseUrl)
                     .then(result => sendResponse(result))
                     .catch(error => sendResponse({ success: false, message: error.message }));
-            } else if (request.action === "loadModelConfig") {
+                return true;
+            case 'loadModelConfig':
                 this.loadModelConfig(request.model)
                     .then(config => sendResponse({ success: true, config }))
                     .catch(error => sendResponse({ success: false, message: error.message }));
-                return true; // 保持异步消息通道开放
-            }
-            return true;
-        });
+                return true;
+            default:
+                return false; // 不处理未知消息
+        }
     }
 
     // 保存API Key到存储
@@ -83,6 +94,7 @@ class BackgroundManager {
             console.log(`${model} API Key saved successfully`);
         } catch (error) {
             console.error(`Failed to save ${model} API Key:`, error);
+            throw error;
         }
     }
     
@@ -104,7 +116,7 @@ class BackgroundManager {
             };
         } catch (error) {
             console.error(`Failed to load ${model} config:`, error);
-            return { apiKey: null, modelEndpoint: null, baseUrl: null };
+            throw error;
         }
     }
 
@@ -175,18 +187,6 @@ class BackgroundManager {
         }
     }
 
-    // 处理消息
-    handleMessage(request, sender, sendResponse) {
-        switch (request.action) {
-            case 'translate':
-                this.handleTranslate(request, sender, sendResponse);
-                break;
-            default:
-                // 对于未处理的消息，不发送响应
-                return false;
-        }
-    }
-
     // 处理翻译请求
     async handleTranslate(request, sender, sendResponse) {
         try {
@@ -245,6 +245,233 @@ class BackgroundManager {
             });
             
             sendResponse({ success: false, error: error.message });
+        }
+    }
+
+    // 处理改写请求
+    async handleRewrite(request, sender, sendResponse) {
+        try {
+            const { text, prompt, model } = request;
+            
+            // 构建改写提示词
+            const fullPrompt = `${prompt}\n\n需要改写的文本：${text}`;
+            
+            // 记录开始时间
+            const startTime = Date.now();
+            
+            // 加载模型配置
+            const config = await this.loadModelConfig(model);
+            
+            // 调用大模型API
+            const result = await this.callModelAPI(model, config, fullPrompt);
+            
+            // 计算耗时
+            const rewriteTime = ((Date.now() - startTime) / 1000).toFixed(2);
+            
+            // 返回结果
+            sendResponse({
+                success: true,
+                result: {
+                    text: result.text,
+                    rewriteTime: rewriteTime,
+                    originalCharCount: text.length,
+                    rewriteCharCount: result.text.length
+                }
+            });
+        } catch (error) {
+            console.error('改写请求失败:', error);
+            sendResponse({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    // 调用大模型API的通用方法
+    async callModelAPI(model, config, prompt) {
+        // 根据不同模型调用对应的API
+        switch (model) {
+            case 'kimi':
+                return await this.callKimiAPI(config, prompt);
+            case 'deepseek':
+                return await this.callDeepSeekAPI(config, prompt);
+            case 'qwen':
+                return await this.callQwenAPI(config, prompt);
+            case 'doubao':
+                return await this.callDoubaoAPI(config, prompt);
+            default:
+                throw new Error(`不支持的模型: ${model}`);
+        }
+    }
+
+    // 调用Kimi API
+    async callKimiAPI(config, prompt) {
+        const apiUrl = `${config.baseUrl}/chat/completions`;
+        const apiKey = config.apiKey;
+        const modelEndpoint = config.modelEndpoint;
+        
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: modelEndpoint,
+                messages: [
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+                temperature: 0.3
+            })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Kimi API请求失败: ${response.status} - ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        // 检查响应格式
+        if (result.choices && result.choices[0] && result.choices[0].message) {
+            return {
+                text: result.choices[0].message.content.trim()
+            };
+        } else {
+            throw new Error('Kimi API返回格式不正确');
+        }
+    }
+
+    // 调用DeepSeek API
+    async callDeepSeekAPI(config, prompt) {
+        const apiUrl = `${config.baseUrl}/chat/completions`;
+        const apiKey = config.apiKey;
+        const modelEndpoint = config.modelEndpoint;
+        
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: modelEndpoint,
+                messages: [
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+                temperature: 0.3
+            })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`DeepSeek API请求失败: ${response.status} - ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        // 检查响应格式
+        if (result.choices && result.choices[0] && result.choices[0].message) {
+            return {
+                text: result.choices[0].message.content.trim()
+            };
+        } else {
+            throw new Error('DeepSeek API返回格式不正确');
+        }
+    }
+
+    // 调用Qwen API
+    async callQwenAPI(config, prompt) {
+        const apiUrl = `${config.baseUrl}/chat/completions`;
+        const apiKey = config.apiKey;
+        const modelEndpoint = config.modelEndpoint;
+        
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: modelEndpoint,
+                messages: [
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+                temperature: 0.3
+            })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Qwen API请求失败: ${response.status} - ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        // 首先检查标准的OpenAI格式响应
+        if (result.choices && result.choices[0] && result.choices[0].message) {
+            return {
+                text: result.choices[0].message.content.trim()
+            };
+        }
+        
+        // 如果标准格式不匹配，再检查Qwen特有的格式
+        if (result.output && result.output.text) {
+            return {
+                text: result.output.text.trim()
+            };
+        }
+        
+        throw new Error('Qwen API返回格式不正确');
+    }
+
+    // 调用Doubao API
+    async callDoubaoAPI(config, prompt) {
+        const apiUrl = `${config.baseUrl}/chat/completions`;
+        const apiKey = config.apiKey;
+        const modelEndpoint = config.modelEndpoint;
+        
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: modelEndpoint,
+                messages: [
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+                temperature: 0.3
+            })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Doubao API请求失败: ${response.status} - ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        // 检查响应格式
+        if (result.choices && result.choices[0] && result.choices[0].message) {
+            return {
+                text: result.choices[0].message.content.trim()
+            };
+        } else {
+            throw new Error('Doubao API返回格式不正确');
         }
     }
 

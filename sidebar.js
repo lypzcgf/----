@@ -1,23 +1,7 @@
 document.addEventListener('DOMContentLoaded', async function() {
   // 获取DOM元素
-  const sourceLangSelect = document.getElementById('sourceLang');
-  const targetLangSelect = document.getElementById('targetLang');
-  const translateBtn = document.getElementById('translateBtn');
-  const copyBtn = document.getElementById('copyBtn');
-  const translationResult = document.getElementById('translationResult');
-  
-  // 新增：获取网页原文元素
-  const originalText = document.getElementById('originalText');
-  
-  // 统计信息元素
-  const translationTimeEl = document.getElementById('translationTime');
-  const charCountEl = document.getElementById('charCount');
-  const wordCountEl = document.getElementById('wordCount');
-  const paragraphCountEl = document.getElementById('paragraphCount');
-  const lineCountEl = document.getElementById('lineCount');
-  
-  // 大模型选择元素
   const modelSelect = document.getElementById('modelSelect');
+  const modelStatus = document.getElementById('modelStatus');
   
   // API Key相关元素
   const apiKeyInput = document.getElementById('apiKeyInput');
@@ -48,15 +32,46 @@ document.addEventListener('DOMContentLoaded', async function() {
   const debugBtn = document.getElementById('debugBtn');
   const logBtn = document.getElementById('logBtn');
   
-  // 新增：复制原文按钮
+  // 网页原文相关元素
+  const originalText = document.getElementById('originalText');
   const copyOriginalBtn = document.getElementById('copyOriginalBtn');
+  const clearOriginalBtn = document.getElementById('clearOriginalBtn');
+  
+  // 翻译功能相关元素
+  const sourceLangSelect = document.getElementById('sourceLang');
+  const targetLangSelect = document.getElementById('targetLang');
+  const translateBtn = document.getElementById('translateBtn');
+  const translationResult = document.getElementById('translationResult');
+  const copyTranslationBtn = document.getElementById('copyTranslationBtn');
+  const clearTranslationBtn = document.getElementById('clearTranslationBtn');
+  
+  // 翻译统计信息元素
+  const translationTimeEl = document.getElementById('translationTime');
+  const charCountEl = document.getElementById('charCount');
+  const wordCountEl = document.getElementById('wordCount');
+  const paragraphCountEl = document.getElementById('paragraphCount');
+  const lineCountEl = document.getElementById('lineCount');
+  
+  // 改写功能相关元素
+  const rewritePrompt = document.getElementById('rewritePrompt');
+  const rewriteBtn = document.getElementById('rewriteBtn');
+  const rewriteResult = document.getElementById('rewriteResult');
+  const copyRewriteBtn = document.getElementById('copyRewriteBtn');
+  const clearRewriteBtn = document.getElementById('clearRewriteBtn');
+  
+  // 改写统计信息元素
+  const rewriteTime = document.getElementById('rewriteTime');
+  const originalCharCount = document.getElementById('originalCharCount');
+  const rewriteCharCount = document.getElementById('rewriteCharCount');
   
   // 页面加载时尝试获取当前页面选中的文本
   let currentText = '';
   
+  // 初始化标签页切换功能
+  initTabs();
+  
   // 监听来自background的消息
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('Received message in sidebar:', message);
     if (message.action === "displayResult") {
       displayTranslationResult(message.result);
       sendResponse({ success: true });
@@ -66,14 +81,10 @@ document.addEventListener('DOMContentLoaded', async function() {
       if (message.text && message.text.length > 0) {
         originalText.textContent = message.text;
         originalText.style.color = 'black';
-        console.log('Updated original text to selected content');
       } else {
-        originalText.textContent = '请在网页中选择需要翻译的文本';
+        originalText.textContent = '请在网页中选择需要处理的文本';
         originalText.style.color = '#999';
-        console.log('Reset original text to default message');
       }
-      // 添加调试信息
-      console.log('Updated original text in sidebar:', message.text);
       sendResponse({ success: true });
     }
     return true;
@@ -82,6 +93,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 监听大模型选择变化
   modelSelect.addEventListener('change', async function() {
     const selectedModel = modelSelect.value;
+    
+    // 保存选择的模型
+    await chrome.storage.local.set({ selectedModel: selectedModel });
     
     // 显示对应的API Key配置区域
     document.getElementById('kimiApiKeySection').style.display = 
@@ -96,6 +110,30 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 加载对应模型的API Key和配置
     loadModelConfig(selectedModel);
   });
+
+  // 标签页切换逻辑
+  function initTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const tabId = button.getAttribute('data-tab');
+        
+        // 更新按钮状态
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        
+        // 显示对应的内容面板
+        tabPanes.forEach(pane => {
+          pane.classList.remove('active');
+          if (pane.id === `${tabId}-tab`) {
+            pane.classList.add('active');
+          }
+        });
+      });
+    });
+  }
   
   // 加载模型配置
   async function loadModelConfig(model) {
@@ -571,28 +609,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   });
 
-  // 复制按钮点击事件
-  copyBtn.addEventListener('click', function() {
-    const textToCopy = translationResult.textContent;
-    if (textToCopy && textToCopy !== '没有可翻译的文本内容' && textToCopy !== '翻译失败，请稍后重试') {
-      navigator.clipboard.writeText(textToCopy)
-        .then(() => {
-          const originalText = copyBtn.textContent;
-          copyBtn.textContent = '✅ 已复制';
-          setTimeout(() => {
-            copyBtn.textContent = originalText;
-          }, 2000);
-        })
-        .catch(err => {
-          console.error('复制失败:', err);
-        });
-    }
-  });
-  
-  // 新增：复制原文按钮点击事件
+  // 复制原文按钮点击事件
   copyOriginalBtn.addEventListener('click', function() {
     const textToCopy = originalText.textContent;
-    if (textToCopy && textToCopy !== '请在网页中选择需要翻译的文本') {
+    if (textToCopy && textToCopy !== '请在网页中选择需要处理的文本') {
       navigator.clipboard.writeText(textToCopy)
         .then(() => {
           const originalText = copyOriginalBtn.textContent;
@@ -605,6 +625,58 @@ document.addEventListener('DOMContentLoaded', async function() {
           console.error('复制失败:', err);
         });
     }
+  });
+  
+  // 复制译文按钮点击事件
+  copyTranslationBtn.addEventListener('click', function() {
+    const textToCopy = translationResult.textContent;
+    if (textToCopy && textToCopy !== '没有可翻译的文本内容' && textToCopy !== '翻译失败，请稍后重试') {
+      navigator.clipboard.writeText(textToCopy)
+        .then(() => {
+          const originalText = copyTranslationBtn.textContent;
+          copyTranslationBtn.textContent = '✅ 已复制';
+          setTimeout(() => {
+            copyTranslationBtn.textContent = originalText;
+          }, 2000);
+        })
+        .catch(err => {
+          console.error('复制失败:', err);
+        });
+    }
+  });
+  
+  // 复制改写结果按钮点击事件
+  copyRewriteBtn.addEventListener('click', function() {
+    const textToCopy = rewriteResult.textContent;
+    if (textToCopy && textToCopy !== '点击"开始改写"按钮来改写选中的文本' && textToCopy !== '没有可改写的文本内容' && textToCopy !== '请输入改写提示词') {
+      navigator.clipboard.writeText(textToCopy)
+        .then(() => {
+          const originalText = copyRewriteBtn.textContent;
+          copyRewriteBtn.textContent = '✅ 已复制';
+          setTimeout(() => {
+            copyRewriteBtn.textContent = originalText;
+          }, 2000);
+        })
+        .catch(err => {
+          console.error('复制失败:', err);
+        });
+    }
+  });
+  
+  // 清空原文按钮点击事件
+  clearOriginalBtn.addEventListener('click', function() {
+    originalText.textContent = '请在网页中选择需要处理的文本';
+    originalText.style.color = '#999';
+  });
+  
+  // 清空译文按钮点击事件
+  clearTranslationBtn.addEventListener('click', function() {
+    translationResult.textContent = '点击"开始翻译"按钮来翻译选中的文本';
+  });
+  
+  // 清空改写结果按钮点击事件
+  clearRewriteBtn.addEventListener('click', function() {
+    rewriteResult.textContent = '点击"开始改写"按钮来改写选中的文本';
   });
   
   // 显示翻译结果
@@ -631,6 +703,22 @@ document.addEventListener('DOMContentLoaded', async function() {
     paragraphCountEl.textContent = result.paragraphCount || '-';
     lineCountEl.textContent = result.lineCount || '-';
   }
+  
+  // 显示改写结果
+  function displayRewriteResult(result) {
+    if (result.error) {
+      rewriteResult.textContent = `改写失败: ${result.error}`;
+      return;
+    }
+    
+    // 显示改写结果
+    rewriteResult.textContent = result.text || '无改写结果';
+    
+    // 更新统计信息
+    rewriteTime.textContent = result.rewriteTime ? `${result.rewriteTime}秒` : '-';
+    originalCharCount.textContent = result.originalCharCount || '-';
+    rewriteCharCount.textContent = result.rewriteCharCount || '-';
+  }
 
   // 重置翻译按钮状态
   function resetTranslateButton() {
@@ -640,4 +728,72 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // 页面加载完成后加载API Key和模型版本
   loadModelConfig('kimi'); // 默认加载Kimi的API Key
+  
+  // 加载上次选择的模型
+  chrome.storage.local.get(['selectedModel'], function(result) {
+    if (result.selectedModel) {
+      modelSelect.value = result.selectedModel;
+      // 触发change事件以显示对应的配置区域
+      modelSelect.dispatchEvent(new Event('change'));
+    }
+  });
+
+  // 改写按钮点击事件
+  rewriteBtn.addEventListener('click', async function() {
+    const prompt = rewritePrompt.value;
+    const selectedModel = modelSelect.value; // 获取选择的大模型
+    
+    // 每次点击改写按钮时都重新获取当前选中的文本
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      // 获取文本
+      currentText = await getTextWithFallback(tab.id);
+    } catch (error) {
+      console.error('Error getting page text:', error);
+      rewriteResult.textContent = error.message || '获取页面内容失败';
+      return;
+    }
+    
+    if (!currentText.trim()) {
+      rewriteResult.textContent = '没有可改写的文本内容';
+      return;
+    }
+    
+    // 更新网页原文显示
+    originalText.textContent = currentText;
+    
+    if (!prompt.trim()) {
+      rewriteResult.textContent = '请输入改写提示词';
+      return;
+    }
+    
+    // 更新界面状态
+    rewriteBtn.textContent = '🔄 改写中...';
+    rewriteBtn.disabled = true;
+    
+    try {
+      // 发送改写请求到background script
+      const response = await chrome.runtime.sendMessage({
+        action: "rewrite",
+        text: currentText,
+        prompt: prompt,
+        model: selectedModel
+      });
+      
+      // 处理响应
+      if (response && response.success) {
+        displayRewriteResult(response.result);
+      } else {
+        throw new Error(response?.error || '改写请求失败');
+      }
+    } catch (error) {
+      console.error('Rewrite error:', error);
+      rewriteResult.textContent = `改写失败: ${error.message}`;
+    } finally {
+      // 恢复界面状态
+      rewriteBtn.textContent = '🔄 开始改写';
+      rewriteBtn.disabled = false;
+    }
+  });
 });
