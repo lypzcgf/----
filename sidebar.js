@@ -28,8 +28,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   const testQwenBtn = document.getElementById('testQwenBtn');
   const saveDoubaoBtn = document.getElementById('saveDoubaoBtn');
   const testDoubaoBtn = document.getElementById('testDoubaoBtn');
-  const debugBtn = document.getElementById('debugBtn');
-  const logBtn = document.getElementById('logBtn');
+
   
   // 网页原文相关元素
   const originalText = document.getElementById('originalText');
@@ -541,19 +540,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   });
 
-  // 开启调试
-  debugBtn.addEventListener('click', function() {
-    // 这里可以添加调试功能
-    console.log('Debug mode enabled');
-    alert('调试模式已开启');
-  });
 
-  // 导出日志
-  logBtn.addEventListener('click', function() {
-    // 这里可以添加导出日志功能
-    console.log('Exporting logs...');
-    alert('日志导出功能暂未实现');
-  });
 
   // 获取文本的函数（带备选方案）
   async function getTextWithFallback(tabId) {
