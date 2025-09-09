@@ -705,9 +705,17 @@ class BackgroundManager {
             const result = await chrome.storage.local.get(['feishuConfig']);
             const config = result.feishuConfig;
             
-            // 验证配置完整性
-            if (!config || !config.appId || !config.appSecret || !config.bitableToken || !config.tableId) {
+            if (!config || !config.appId || !config.appSecret || !config.bitableToken) {
                 throw new Error('飞书配置不完整，请先在配置页面配置飞书参数');
+            }
+            
+            // 检查是否配置了表格ID
+            if (request.type === 'translation' && !config.tableId) {
+                throw new Error('未配置翻译数据表ID，请在飞书配置中指定翻译数据表ID');
+            }
+            
+            if (request.type === 'rewrite' && !config.rewriteTableId) {
+                throw new Error('未配置改写数据表ID，请在飞书配置中指定改写数据表ID');
             }
             
             // 获取访问令牌
@@ -766,8 +774,11 @@ class BackgroundManager {
                 recordData.fields['改写提示词'] = request.prompt;
             }
             
+            // 根据操作类型选择对应的数据表ID
+            const tableId = request.type === 'translation' ? config.tableId : config.rewriteTableId;
+            
             // 发送到飞书多维表格
-            const response = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${config.bitableToken}/tables/${config.tableId}/records`, {
+            const response = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${config.bitableToken}/tables/${tableId}/records`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,

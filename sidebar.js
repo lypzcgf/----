@@ -72,6 +72,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   const feishuAppSecret = document.getElementById('feishuAppSecret');
   const feishuBitableToken = document.getElementById('feishuBitableToken');
   const feishuTableId = document.getElementById('feishuTableId');
+  const feishuRewriteTableId = document.getElementById('feishuRewriteTableId');
   const saveFeishuConfigBtn = document.getElementById('saveFeishuConfig');
   const testFeishuConnectionBtn = document.getElementById('testFeishuConnection');
   const feishuStatus = document.getElementById('feishuStatus');
@@ -1001,7 +1002,8 @@ document.addEventListener('DOMContentLoaded', async function() {
       appId: feishuAppId.value.trim(),
       appSecret: feishuAppSecret.value.trim(),
       bitableToken: feishuBitableToken.value.trim(),
-      tableId: feishuTableId.value.trim()
+      tableId: feishuTableId.value.trim(),
+      rewriteTableId: feishuRewriteTableId.value.trim()
     };
     
     try {
@@ -1107,7 +1109,8 @@ async function loadFeishuConfig() {
       appId: '',
       appSecret: '',
       bitableToken: '',
-      tableId: ''
+      tableId: '',
+      rewriteTableId: ''
     };
     
 
@@ -1115,6 +1118,7 @@ async function loadFeishuConfig() {
     document.getElementById('feishuAppSecret').value = config.appSecret || '';
     document.getElementById('feishuBitableToken').value = config.bitableToken || '';
     document.getElementById('feishuTableId').value = config.tableId || '';
+    document.getElementById('feishuRewriteTableId').value = config.rewriteTableId || '';
   } catch (error) {
     console.error('加载飞书配置失败:', error);
   }
