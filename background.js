@@ -82,6 +82,21 @@ class BackgroundManager {
                     .then(result => sendResponse({ success: true, data: result }))
                     .catch(error => sendResponse({ success: false, error: error.message }));
                 return true;
+            case 'getBookmarks':
+                this.getBookmarksData()
+                    .then(result => sendResponse({ success: true, data: result }))
+                    .catch(error => sendResponse({ success: false, error: error.message }));
+                return true;
+            case 'syncBookmarks':
+                this.syncBookmarksToFeishu(request)
+                    .then(result => sendResponse({ success: true, data: result }))
+                    .catch(error => sendResponse({ success: false, error: error.message }));
+                return true;
+            case 'exportBookmarks':
+                this.exportBookmarksData(request.format)
+                    .then(result => sendResponse({ success: true, data: result }))
+                    .catch(error => sendResponse({ success: false, error: error.message }));
+                return true;
             default:
                 return false; // 不处理未知消息
         }
@@ -797,6 +812,246 @@ class BackgroundManager {
             }
         } catch (error) {
             console.error('同步到飞书失败:', error);
+            throw error;
+        }
+    }
+    
+    // 获取Chrome书签数据
+    async getBookmarksData() {
+        try {
+            return new Promise((resolve, reject) => {
+                chrome.bookmarks.getTree((bookmarkTreeNodes) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                        return;
+                    }
+                    
+                    const bookmarks = [];
+                    
+                    // 递归遍历书签树
+                    const traverseBookmarks = (nodes, folderPath = '') => {
+                        nodes.forEach(node => {
+                            if (node.url) {
+                                // 这是一个书签
+                                bookmarks.push({
+                                    id: node.id,
+                                    title: node.title || '无标题',
+                                    url: node.url,
+                                    folder: folderPath,
+                                    createdTime: new Date(node.dateAdded).toISOString(),
+                                    lastModified: new Date(node.dateGroupModified || node.dateAdded).toISOString()
+                                });
+                            } else if (node.children) {
+                                // 这是一个文件夹，继续递归
+                                const currentPath = folderPath ? `${folderPath}/${node.title}` : node.title;
+                                traverseBookmarks(node.children, currentPath);
+                            }
+                        });
+                    };
+                    
+                    traverseBookmarks(bookmarkTreeNodes);
+                    
+                    resolve({
+                        bookmarks: bookmarks,
+                        totalCount: bookmarks.length,
+                        timestamp: new Date().toISOString()
+                    });
+                });
+            });
+        } catch (error) {
+            console.error('获取书签数据失败:', error);
+            throw error;
+        }
+    }
+    
+    // 同步书签到飞书多维表格
+    async syncBookmarksToFeishu(request) {
+        try {
+            const { mode = 'full' } = request; // 'full' 或 'incremental'
+            
+            // 获取飞书配置
+            const result = await chrome.storage.local.get(['feishuConfig']);
+            const config = result.feishuConfig;
+            
+            if (!config || !config.appId || !config.appSecret || !config.bitableToken) {
+                throw new Error('飞书配置不完整，请先在配置页面配置飞书参数');
+            }
+            
+            if (!config.bookmarkTableId) {
+                throw new Error('未配置书签数据表ID，请在飞书配置中指定书签数据表ID');
+            }
+            
+            // 获取书签数据
+            const bookmarksData = await this.getBookmarksData();
+            let bookmarksToSync = bookmarksData.bookmarks;
+            
+            // 如果是增量同步，过滤出需要同步的书签
+            if (mode === 'incremental') {
+                const lastSyncResult = await chrome.storage.local.get(['lastBookmarkSync']);
+                const lastSyncTime = lastSyncResult.lastBookmarkSync;
+                
+                if (lastSyncTime) {
+                    bookmarksToSync = bookmarksToSync.filter(bookmark => {
+                        const bookmarkTime = new Date(bookmark.lastModified).getTime();
+                        const lastSync = new Date(lastSyncTime).getTime();
+                        return bookmarkTime > lastSync;
+                    });
+                }
+            }
+            
+            if (bookmarksToSync.length === 0) {
+                return {
+                    message: '没有需要同步的书签',
+                    syncedCount: 0,
+                    totalCount: bookmarksData.totalCount
+                };
+            }
+            
+            // 获取访问令牌
+            const tokenResponse = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    app_id: config.appId,
+                    app_secret: config.appSecret
+                })
+            });
+            
+            const tokenData = await tokenResponse.json();
+            
+            if (tokenData.code !== 0) {
+                throw new Error(`获取访问令牌失败: ${tokenData.msg}`);
+            }
+            
+            const accessToken = tokenData.tenant_access_token;
+            
+            // 格式化时间显示
+            const formatDate = (dateString) => {
+                const date = new Date(dateString);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            };
+            
+            // 批量同步书签（每次最多20个）
+            const batchSize = 20;
+            let syncedCount = 0;
+            const currentTime = new Date().toISOString();
+            
+            for (let i = 0; i < bookmarksToSync.length; i += batchSize) {
+                const batch = bookmarksToSync.slice(i, i + batchSize);
+                const records = batch.map(bookmark => ({
+                    fields: {
+                        '书签标题': bookmark.title,
+                        '书签URL': bookmark.url,
+                        '所在文件夹': bookmark.folder || '根目录',
+                        '创建时间': formatDate(bookmark.createdTime),
+                        '最后修改时间': formatDate(bookmark.lastModified),
+                        '同步时间': formatDate(currentTime),
+                        '书签ID': bookmark.id
+                    }
+                }));
+                
+                // 发送到飞书多维表格
+                const response = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${config.bitableToken}/tables/${config.bookmarkTableId}/records/batch_create`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        records: records
+                    })
+                });
+                
+                const responseData = await response.json();
+                
+                if (response.ok && responseData.code === 0) {
+                    syncedCount += batch.length;
+                } else {
+                    throw new Error(`同步失败: ${responseData.msg || '未知错误'}`);
+                }
+                
+                // 避免API调用过于频繁
+                if (i + batchSize < bookmarksToSync.length) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+            
+            // 更新最后同步时间
+            await chrome.storage.local.set({ lastBookmarkSync: currentTime });
+            
+            return {
+                message: `成功同步 ${syncedCount} 个书签`,
+                syncedCount: syncedCount,
+                totalCount: bookmarksData.totalCount,
+                mode: mode,
+                syncTime: formatDate(currentTime)
+            };
+        } catch (error) {
+            console.error('同步书签到飞书失败:', error);
+            throw error;
+        }
+    }
+    
+    // 导出书签数据
+    async exportBookmarksData(format = 'json') {
+        try {
+            const bookmarksData = await this.getBookmarksData();
+            const bookmarks = bookmarksData.bookmarks;
+            
+            let exportData;
+            let filename;
+            let mimeType;
+            
+            if (format === 'csv') {
+                // 导出为CSV格式
+                const headers = ['书签标题', '书签URL', '所在文件夹', '创建时间', '最后修改时间'];
+                const csvRows = [headers.join(',')];
+                
+                bookmarks.forEach(bookmark => {
+                    const row = [
+                        `"${bookmark.title.replace(/"/g, '""')}"`,
+                        `"${bookmark.url}"`,
+                        `"${bookmark.folder || '根目录'}"`,
+                        `"${bookmark.createdTime}"`,
+                        `"${bookmark.lastModified}"`
+                    ];
+                    csvRows.push(row.join(','));
+                });
+                
+                exportData = csvRows.join('\n');
+                filename = `bookmarks_${new Date().toISOString().split('T')[0]}.csv`;
+                mimeType = 'text/csv';
+            } else {
+                // 导出为JSON格式
+                exportData = JSON.stringify({
+                    exportTime: new Date().toISOString(),
+                    totalCount: bookmarks.length,
+                    bookmarks: bookmarks
+                }, null, 2);
+                filename = `bookmarks_${new Date().toISOString().split('T')[0]}.json`;
+                mimeType = 'application/json';
+            }
+            
+            // 创建下载链接
+            const blob = new Blob([exportData], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            
+            return {
+                downloadUrl: url,
+                filename: filename,
+                totalCount: bookmarks.length,
+                format: format
+            };
+        } catch (error) {
+            console.error('导出书签数据失败:', error);
             throw error;
         }
     }

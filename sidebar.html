@@ -399,6 +399,11 @@
                         <input type="text" id="feishuRewriteTableId" placeholder="请输入改写数据表ID">
                     </div>
                     
+                    <div class="form-group">
+                        <label for="feishuBookmarkTableId">书签数据表ID:</label>
+                        <input type="text" id="feishuBookmarkTableId" placeholder="请输入书签数据表ID">
+                    </div>
+                    
                     <div class="button-group">
                         <button id="saveFeishuConfig" class="btn btn-primary">保存配置</button>
                         <button id="testFeishuConnection" class="btn btn-secondary">测试连接</button>
@@ -427,6 +432,7 @@
         <div class="tab-container">
             <button class="tab-button active" data-tab="translate">翻译</button>
             <button class="tab-button" data-tab="rewrite">改写</button>
+            <button class="tab-button" data-tab="bookmark">书签同步</button>
         </div>
 
         <!-- 翻译功能区域 -->
@@ -508,6 +514,30 @@
                     <div class="stats-item">改写时间: <span id="rewriteTime">-</span></div>
                     <div class="stats-item">原字符数: <span id="originalCharCount">-</span></div>
                     <div class="stats-item">改写后字符数: <span id="rewriteCharCount">-</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 书签同步功能区域 -->
+        <div id="bookmark-tab" class="tab-pane">
+            <div class="section">
+                <h2>Chrome书签同步</h2>
+                <div class="result-container">
+                    <div class="stats-item">书签总数: <span id="bookmarkCount">0</span></div>
+                    <div class="stats-item">最近同步时间: <span id="lastSyncTime">从未</span></div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button id="fullSyncBtn" class="btn-primary">🔄 全量同步</button>
+                    <button id="incrementalSyncBtn" class="btn-secondary" style="margin-left: 10px;">🔄 增量同步</button>
+                    <button id="exportBookmarksBtn" class="btn-secondary" style="margin-left: 10px;">📋 导出书签</button>
+                </div>
+            </div>
+
+            <!-- 同步状态区域 -->
+            <div class="section">
+                <h2>同步状态</h2>
+                <div class="result-container">
+                    <div id="syncStatus">准备就绪</div>
                 </div>
             </div>
         </div>

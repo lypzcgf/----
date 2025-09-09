@@ -72,9 +72,18 @@ document.addEventListener('DOMContentLoaded', async function() {
   const feishuBitableToken = document.getElementById('feishuBitableToken');
   const feishuTableId = document.getElementById('feishuTableId');
   const feishuRewriteTableId = document.getElementById('feishuRewriteTableId');
+  const feishuBookmarkTableId = document.getElementById('feishuBookmarkTableId');
   const saveFeishuConfigBtn = document.getElementById('saveFeishuConfig');
   const testFeishuConnectionBtn = document.getElementById('testFeishuConnection');
   const feishuStatus = document.getElementById('feishuStatus');
+  
+  // 书签同步相关元素
+  const bookmarkCount = document.getElementById('bookmarkCount');
+  const lastSyncTime = document.getElementById('lastSyncTime');
+  const fullSyncBtn = document.getElementById('fullSyncBtn');
+  const incrementalSyncBtn = document.getElementById('incrementalSyncBtn');
+  const exportBookmarksBtn = document.getElementById('exportBookmarksBtn');
+  const syncStatus = document.getElementById('syncStatus');
   
   // 页面加载时尝试获取当前页面选中的文本
   let currentText = '';
@@ -888,6 +897,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 加载飞书多维表格配置
   await loadFeishuConfig();
   
+  // 页面加载时加载书签相关数据
+  await loadBookmarkStats();
+  await loadLastSyncTime();
+  
   // 飞书多维表格配置保存按钮事件
   saveFeishuConfigBtn.addEventListener('click', async function() {
     const config = {
@@ -895,7 +908,8 @@ document.addEventListener('DOMContentLoaded', async function() {
       appSecret: feishuAppSecret.value.trim(),
       bitableToken: feishuBitableToken.value.trim(),
       tableId: feishuTableId.value.trim(),
-      rewriteTableId: feishuRewriteTableId.value.trim()
+      rewriteTableId: feishuRewriteTableId.value.trim(),
+      bookmarkTableId: feishuBookmarkTableId.value.trim()
     };
     
     try {
@@ -979,6 +993,152 @@ document.addEventListener('DOMContentLoaded', async function() {
       rewriteBtn.disabled = false;
     }
   });
+
+  // 书签同步按钮事件监听器
+  fullSyncBtn.addEventListener('click', async function() {
+    await performBookmarkSync('full');
+  });
+
+  incrementalSyncBtn.addEventListener('click', async function() {
+    await performBookmarkSync('incremental');
+  });
+
+  exportBookmarksBtn.addEventListener('click', async function() {
+    await exportBookmarks();
+  });
+
+  // 执行书签同步
+  async function performBookmarkSync(mode) {
+    const button = mode === 'full' ? fullSyncBtn : incrementalSyncBtn;
+    const originalText = button.textContent;
+    
+    try {
+      // 更新按钮状态
+      button.textContent = '🔄 同步中...';
+      button.disabled = true;
+      syncStatus.textContent = '正在同步书签...';
+      syncStatus.style.color = '#007bff';
+      
+      // 发送同步请求
+      const response = await chrome.runtime.sendMessage({
+        action: 'syncBookmarks',
+        mode: mode
+      });
+      
+      if (response.success) {
+        const result = response.data;
+        syncStatus.textContent = result.message;
+        syncStatus.style.color = '#28a745';
+        
+        // 更新最近同步时间
+        if (result.syncTime) {
+          lastSyncTime.textContent = result.syncTime;
+        }
+        
+        // 刷新书签统计
+        await loadBookmarkStats();
+      } else {
+        throw new Error(response.error || '同步失败');
+      }
+    } catch (error) {
+      console.error('书签同步失败:', error);
+      syncStatus.textContent = `同步失败: ${error.message}`;
+      syncStatus.style.color = '#dc3545';
+    } finally {
+      // 恢复按钮状态
+      button.textContent = originalText;
+      button.disabled = false;
+    }
+  }
+  
+  // 导出书签
+  async function exportBookmarks() {
+    const originalText = exportBookmarksBtn.textContent;
+    
+    try {
+      exportBookmarksBtn.textContent = '📤 导出中...';
+      exportBookmarksBtn.disabled = true;
+      syncStatus.textContent = '正在导出书签...';
+      syncStatus.style.color = '#007bff';
+      
+      // 发送导出请求
+      const response = await chrome.runtime.sendMessage({
+        action: 'exportBookmarks',
+        format: 'json' // 可以扩展为用户选择格式
+      });
+      
+      if (response.success) {
+        const result = response.data;
+        
+        // 创建下载链接
+        const link = document.createElement('a');
+        link.href = result.downloadUrl;
+        link.download = result.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // 释放URL对象
+        URL.revokeObjectURL(result.downloadUrl);
+        
+        syncStatus.textContent = `成功导出 ${result.totalCount} 个书签`;
+        syncStatus.style.color = '#28a745';
+      } else {
+        throw new Error(response.error || '导出失败');
+      }
+    } catch (error) {
+      console.error('导出书签失败:', error);
+      syncStatus.textContent = `导出失败: ${error.message}`;
+      syncStatus.style.color = '#dc3545';
+    } finally {
+      exportBookmarksBtn.textContent = originalText;
+      exportBookmarksBtn.disabled = false;
+    }
+  }
+  
+  // 加载书签统计信息
+  async function loadBookmarkStats() {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'getBookmarks'
+      });
+      
+      if (response.success) {
+        const result = response.data;
+        bookmarkCount.textContent = result.totalCount;
+      } else {
+        console.error('获取书签统计失败:', response.error);
+        bookmarkCount.textContent = '获取失败';
+      }
+    } catch (error) {
+      console.error('获取书签统计失败:', error);
+      bookmarkCount.textContent = '获取失败';
+    }
+  }
+  
+  // 加载最近同步时间
+  async function loadLastSyncTime() {
+    try {
+      const result = await chrome.storage.local.get(['lastBookmarkSync']);
+      if (result.lastBookmarkSync) {
+        const syncTime = new Date(result.lastBookmarkSync);
+        const formatDate = (date) => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          return `${year}-${month}-${day} ${hours}:${minutes}`;
+        };
+        lastSyncTime.textContent = formatDate(syncTime);
+      } else {
+        lastSyncTime.textContent = '从未';
+      }
+    } catch (error) {
+      console.error('获取最近同步时间失败:', error);
+      lastSyncTime.textContent = '获取失败';
+    }
+  }
 });
 
 // 加载飞书多维表格配置
@@ -991,7 +1151,8 @@ async function loadFeishuConfig() {
       appSecret: '',
       bitableToken: '',
       tableId: '',
-      rewriteTableId: ''
+      rewriteTableId: '',
+      bookmarkTableId: ''
     };
     
 
@@ -1000,6 +1161,7 @@ async function loadFeishuConfig() {
     document.getElementById('feishuBitableToken').value = config.bitableToken || '';
     document.getElementById('feishuTableId').value = config.tableId || '';
     document.getElementById('feishuRewriteTableId').value = config.rewriteTableId || '';
+    document.getElementById('feishuBookmarkTableId').value = config.bookmarkTableId || '';
   } catch (error) {
     console.error('加载飞书配置失败:', error);
   }
