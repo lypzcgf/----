@@ -556,7 +556,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         throw new Error(response ? response.error : '无法与页面通信');
       }
     } catch (error) {
-      console.error('通过消息传递获取文本失败:', error);
       
       // 备选方案：直接执行脚本获取文本
       try {
