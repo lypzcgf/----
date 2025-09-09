@@ -702,25 +702,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     const targetLang = targetLangSelect.value;
     const selectedModel = modelSelect.value; // 获取选择的大模型
     
-    // 每次点击翻译按钮时都重新获取当前选中的文本
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      // 获取文本
-      currentText = await getTextWithFallback(tab.id);
-    } catch (error) {
-      console.error('Error getting page text:', error);
-      translationResult.textContent = error.message || '获取页面内容失败';
+    // 从原文文本框获取文本，而不是重新获取网页选中文本
+    const textToTranslate = originalText.textContent;
+    
+    // 检查原文文本框是否为空
+    if (!textToTranslate || textToTranslate === '请在网页中选择需要处理的文本') {
+      translationResult.textContent = '请先在网页中选择需要翻译的文本，或在上方原文区域输入文本';
       return;
     }
-    
-    if (!currentText.trim()) {
-      translationResult.textContent = '没有可翻译的文本内容';
-      return;
-    }
-    
-    // 更新网页原文显示
-    originalText.textContent = currentText;
     
     // 显示正在翻译状态
     translateBtn.textContent = '🔄 翻译中...';
@@ -730,7 +719,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       // 发送翻译请求到background script
       const response = await chrome.runtime.sendMessage({
         action: "translate",
-        text: currentText,
+        text: textToTranslate,
         sourceLang: sourceLang,
         targetLang: targetLang,
         model: selectedModel // 传递选择的大模型
@@ -1045,25 +1034,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     const prompt = rewritePrompt.value;
     const selectedModel = modelSelect.value; // 获取选择的大模型
     
-    // 每次点击改写按钮时都重新获取当前选中的文本
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      // 获取文本
-      currentText = await getTextWithFallback(tab.id);
-    } catch (error) {
-      console.error('Error getting page text:', error);
-      rewriteResult.textContent = error.message || '获取页面内容失败';
+    // 从原文文本框获取文本，而不是重新获取网页选中文本
+    const textToRewrite = originalText.textContent;
+    
+    // 检查原文文本框是否为空
+    if (!textToRewrite || textToRewrite === '请在网页中选择需要处理的文本') {
+      rewriteResult.textContent = '请先在网页中选择需要改写的文本，或在上方原文区域输入文本';
       return;
     }
-    
-    if (!currentText.trim()) {
-      rewriteResult.textContent = '没有可改写的文本内容';
-      return;
-    }
-    
-    // 更新网页原文显示
-    originalText.textContent = currentText;
     
     if (!prompt.trim()) {
       rewriteResult.textContent = '请输入改写提示词';
@@ -1078,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       // 发送改写请求到background script
       const response = await chrome.runtime.sendMessage({
         action: "rewrite",
-        text: currentText,
+        text: textToRewrite,
         prompt: prompt,
         model: selectedModel
       });
