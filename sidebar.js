@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 网页原文相关元素
   const originalText = document.getElementById('originalText');
   const getSelectedTextBtn = document.getElementById('getSelectedTextBtn');
-  const getFullTextBtn = document.getElementById('getFullTextBtn');
+
   const copyOriginalBtn = document.getElementById('copyOriginalBtn');
   const clearOriginalBtn = document.getElementById('clearOriginalBtn');
   
@@ -117,42 +117,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   });
   
-  // 获取全文按钮点击事件
-  getFullTextBtn.addEventListener('click', async function() {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      // 获取全文
-      const fullText = await getFullTextWithFallback(tab.id);
-      
-      if (fullText && fullText.trim()) {
-        currentText = fullText.trim();
-        originalText.textContent = currentText;
-        originalText.style.color = 'black';
-        
-        // 给用户一个视觉反馈
-        const originalBtnText = getFullTextBtn.textContent;
-        getFullTextBtn.textContent = '✅ 已获取';
-        setTimeout(() => {
-          getFullTextBtn.textContent = originalBtnText;
-        }, 2000);
-      } else {
-        originalText.textContent = '未找到页面内容';
-        originalText.style.color = '#999';
-        
-        // 给用户一个视觉反馈
-        const originalBtnText = getFullTextBtn.textContent;
-        getFullTextBtn.textContent = '❌ 无内容';
-        setTimeout(() => {
-          getFullTextBtn.textContent = originalBtnText;
-        }, 2000);
-      }
-    } catch (error) {
-      console.error('获取全文失败:', error);
-      originalText.textContent = '获取全文失败: ' + (error.message || '未知错误');
-      originalText.style.color = '#999';
-    }
-  });
+
   
   // 初始化标签页切换功能
   initTabs();
@@ -646,55 +611,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   }
   
-  // 获取全文的函数（带备选方案）
-  async function getFullTextWithFallback(tabId) {
-    try {
-      // 首先尝试通过消息传递获取页面的全文
-      const response = await chrome.tabs.sendMessage(tabId, {
-        action: 'getFullText'
-      });
-      
-      if (response && response.success) {
-        return response.text;
-      } else {
-        throw new Error(response ? response.error : '无法与页面通信');
-      }
-    } catch (error) {
-      console.error('通过消息传递获取全文失败:', error);
-      
-      // 备选方案：直接执行脚本获取全文
-      try {
-        const results = await chrome.scripting.executeScript({
-          target: { tabId: tabId },
-          func: () => {
-            // 尝试获取页面主要内容
-            const article = document.querySelector('article') || 
-                           document.querySelector('[role="main"]') || 
-                           document.querySelector('.content') ||
-                           document.querySelector('main') ||
-                           document.body;
-            
-            if (article) {
-              // 移除脚本和样式元素
-              const clone = article.cloneNode(true);
-              clone.querySelectorAll('script, style, nav, footer, header, aside').forEach(el => el.remove());
-              return clone.innerText || clone.textContent || '';
-            }
-            
-            return '';
-          }
-        });
-        
-        if (results && results[0] && results[0].result) {
-          return results[0].result;
-        }
-      } catch (scriptError) {
-        console.error('通过脚本注入获取全文失败:', scriptError);
-      }
-      
-      throw new Error('无法获取页面全文内容');
-    }
-  }
+
 
   // 翻译按钮点击事件
   translateBtn.addEventListener('click', async function() {

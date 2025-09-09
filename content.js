@@ -1,340 +1,273 @@
-// Content Script - 注入到网页中运行
-console.log('Content script loaded');
+// Content Script - 智能翻译助手 v2.0
+// 版本标识：2024-01-01-v2.0 - 彻底重写版本，解决sendMessage错误
+console.log('Content Script v2.0 开始加载...');
 
-// 监听来自sidebar的消息
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Content script received message:', request);
-  
-  // 检查扩展上下文是否有效
-  if (chrome.runtime?.id) {
-    if (request.action === 'getTextForTranslation') {
-      try {
-        // 获取选中的文本
-        const selectedText = window.getSelection().toString();
-        
-        if (selectedText.trim()) {
-          sendResponse({ success: true, text: selectedText });
-        } else {
-          // 如果没有选中文本，获取页面主要内容
-          const article = document.querySelector('article') || 
-                         document.querySelector('[role="main"]') || 
-                         document.querySelector('.content') ||
-                         document.body;
-          
-          if (article) {
-            sendResponse({ success: true, text: article.innerText || article.textContent || '' });
-          } else {
-            sendResponse({ success: false, error: '未找到页面内容' });
-          }
+// 全局错误处理
+// 增强的全局错误处理
+window.addEventListener('error', function(e) {
+    const errorInfo = {
+        message: e.message || '未知错误',
+        filename: e.filename || '未知文件',
+        lineno: e.lineno || '未知行号',
+        colno: e.colno || '未知列号',
+        error: e.error,
+        stack: e.error ? e.error.stack : '无堆栈信息',
+        timestamp: new Date().toISOString()
+    };
+    console.error('Content Script 详细错误信息:', errorInfo);
+});
+
+// Promise错误处理
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('Content Script Promise错误:', {
+        reason: e.reason,
+        promise: e.promise,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// 检查Chrome扩展API可用性
+function checkChromeAPI() {
+    try {
+        if (typeof chrome === 'undefined') {
+            console.error('Chrome API 不可用');
+            return false;
         }
-      } catch (error) {
-        console.error('获取文本时出错:', error);
-        sendResponse({ success: false, error: '获取文本失败: ' + error.message });
-      }
-    } else if (request.action === 'getFullText') {
-      try {
-        // 获取页面全文内容
-        const article = document.querySelector('article') || 
-                       document.querySelector('[role="main"]') || 
-                       document.querySelector('.content') ||
-                       document.querySelector('main') ||
-                       document.body;
-        
-        if (article) {
-          // 移除脚本和样式元素
-          const clone = article.cloneNode(true);
-          clone.querySelectorAll('script, style, nav, footer, header, aside').forEach(el => el.remove());
-          sendResponse({ success: true, text: clone.innerText || clone.textContent || '' });
-        } else {
-          sendResponse({ success: false, error: '未找到页面内容' });
+        if (!chrome.runtime) {
+            console.error('chrome.runtime 不可用');
+            return false;
         }
-      } catch (error) {
-        console.error('获取全文时出错:', error);
-        sendResponse({ success: false, error: '获取全文失败: ' + error.message });
-      }
+        if (!chrome.runtime.id) {
+            console.error('chrome.runtime.id 不可用，扩展上下文可能已失效');
+            return false;
+        }
+        console.log('Chrome API 检查通过，扩展ID:', chrome.runtime.id);
+        return true;
+    } catch (error) {
+        console.error('检查Chrome API时出错:', error);
+        return false;
     }
-    
-    // 返回true表示异步响应
-    return true;
-  } else {
-    // 扩展上下文已失效
-    console.log('Extension context invalidated');
-    return false;
-  }
-});
+}
 
-// 监听文本选择变化事件
-document.addEventListener('selectionchange', () => {
-  // 检查扩展上下文是否有效
-  if (chrome.runtime?.id) {
-    // 添加一个小延迟以确保选择操作完成
-    setTimeout(() => {
-      const selectedText = window.getSelection().toString();
-      
-      // 无论是否有选中文本都发送消息到插件界面
-      chrome.runtime.sendMessage({
-        action: "displayText",
-        text: selectedText
-      }).catch(error => {
-        // 忽略错误，因为可能sidebar尚未打开
-        console.log('发送文本到插件界面失败:', error);
-      });
-    }, 50);
-  }
-});
+// 安全的消息发送函数
+function safeSendResponse(sendResponse, data) {
+    try {
+        if (typeof sendResponse === 'function') {
+            sendResponse(data);
+            console.log('响应发送成功:', data);
+        } else {
+            console.error('sendResponse 不是函数');
+        }
+    } catch (error) {
+        console.error('发送响应时出错:', error);
+    }
+}
 
-// Content Script - 在网页中运行的脚本
-class ContentManager {
+// 简化的内容管理器
+class SimpleContentManager {
     constructor() {
+        console.log('SimpleContentManager 构造函数开始');
+        this.isInitialized = false;
         this.init();
     }
 
     init() {
-        // 监听来自popup和sidepanel的消息
-        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-            this.handleMessage(request, sender, sendResponse);
-            return true; // 保持消息通道开放
-        });
-        
-        // 使用selectionchange事件监听文本选择变化
-        document.addEventListener('selectionchange', () => {
-            // 增加小延迟确保选择完成
-            setTimeout(() => {
-                const selection = window.getSelection();
-                const selectedText = selection.toString().trim();
-                
-                // 添加调试信息
-                console.log('Selection change detected. Selected text length:', selectedText.length);
-                console.log('Selected text content:', selectedText);
-                
-                // 发送消息到sidebar（无论是否有选中文本）
-                chrome.runtime.sendMessage({
-                    action: "displayText",
-                    text: selectedText
-                }).then(() => {
-                    console.log('Successfully sent text to sidebar');
-                }).catch(err => {
-                    // 记录错误但不中断
-                    console.error('Failed to send selected text to sidebar:', err);
-                });
-            }, 50); // 50ms延迟确保选择操作完成
-        });
-    }
+        try {
+            console.log('开始初始化 SimpleContentManager');
+            
+            // 检查Chrome API
+            if (!checkChromeAPI()) {
+                console.error('Chrome API 不可用，停止初始化');
+                return;
+            }
 
-    // 处理消息
-    handleMessage(request, sender, sendResponse) {
-        switch (request.action) {
-            case 'ping':
-                // 用于检查content script是否可用
-                sendResponse({ success: true, message: 'Content script is ready' });
-                break;
-            case 'getSelectedText':
-                this.getSelectedText(sendResponse);
-                break;
-            case 'getTextForTranslation':
-                this.getTextForTranslation(sendResponse);
-                break;
-            case 'getPageContent':
-                this.getPageContent(sendResponse);
-                break;
-            default:
-                sendResponse({ error: '未知的操作类型' });
+            // 设置消息监听器
+            this.setupMessageListener();
+            
+            this.isInitialized = true;
+            console.log('SimpleContentManager 初始化完成');
+        } catch (error) {
+            console.error('初始化 SimpleContentManager 时出错:', error);
         }
     }
 
-    // 获取选中的文本
-    getSelectedText(sendResponse) {
+    setupMessageListener() {
         try {
-            const selection = window.getSelection();
-            const selectedText = selection.toString().trim();
+            console.log('设置消息监听器');
             
-            sendResponse({
+            chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+                console.log('收到消息:', request);
+                
+                try {
+                    // 再次检查Chrome API
+                    if (!checkChromeAPI()) {
+                        safeSendResponse(sendResponse, { 
+                            success: false, 
+                            error: 'Chrome API 不可用' 
+                        });
+                        return false;
+                    }
+
+                    this.handleMessage(request, sender, sendResponse);
+                    return true; // 保持消息通道开放
+                } catch (error) {
+                    console.error('处理消息时出错:', error);
+                    safeSendResponse(sendResponse, { 
+                        success: false, 
+                        error: '处理消息时出错: ' + error.message 
+                    });
+                    return false;
+                }
+            });
+            
+            console.log('消息监听器设置完成');
+        } catch (error) {
+            console.error('设置消息监听器时出错:', error);
+        }
+    }
+
+    handleMessage(request, sender, sendResponse) {
+        try {
+            console.log('处理消息:', request.action);
+            
+            if (!request || !request.action) {
+                safeSendResponse(sendResponse, { 
+                    success: false, 
+                    error: '无效的请求' 
+                });
+                return;
+            }
+
+            switch (request.action) {
+                case 'ping':
+                    this.handlePing(sendResponse);
+                    break;
+                case 'getSelectedText':
+                    this.handleGetSelectedText(sendResponse);
+                    break;
+                case 'getTextForTranslation':
+                    this.handleGetTextForTranslation(sendResponse);
+                    break;
+
+                default:
+                    console.log('未知的操作类型:', request.action);
+                    safeSendResponse(sendResponse, { 
+                        success: false, 
+                        error: '未知的操作类型: ' + request.action 
+                    });
+            }
+        } catch (error) {
+            console.error('handleMessage 出错:', error);
+            safeSendResponse(sendResponse, { 
+                success: false, 
+                error: 'handleMessage 出错: ' + error.message 
+            });
+        }
+    }
+
+    handlePing(sendResponse) {
+        try {
+            console.log('处理 ping 请求');
+            safeSendResponse(sendResponse, { 
+                success: true, 
+                message: 'Content script v2.0 is ready',
+                timestamp: Date.now()
+            });
+        } catch (error) {
+            console.error('handlePing 出错:', error);
+            safeSendResponse(sendResponse, { 
+                success: false, 
+                error: 'handlePing 出错: ' + error.message 
+            });
+        }
+    }
+
+    handleGetSelectedText(sendResponse) {
+        try {
+            console.log('处理 getSelectedText 请求');
+            
+            const selection = window.getSelection();
+            const selectedText = selection ? selection.toString().trim() : '';
+            
+            console.log('获取到的选中文本长度:', selectedText.length);
+            
+            safeSendResponse(sendResponse, {
                 success: true,
                 text: selectedText,
                 hasSelection: selectedText.length > 0
             });
         } catch (error) {
-            console.error('获取选中文本失败:', error);
-            sendResponse({
+            console.error('handleGetSelectedText 出错:', error);
+            safeSendResponse(sendResponse, {
                 success: false,
-                error: error.message,
+                error: 'handleGetSelectedText 出错: ' + error.message,
                 text: ''
             });
         }
     }
 
-    // 获取用于翻译的文本（优先选中文本，否则获取页面内容）
-    getTextForTranslation(sendResponse) {
+    handleGetTextForTranslation(sendResponse) {
         try {
+            console.log('处理 getTextForTranslation 请求');
+            
             const selection = window.getSelection();
-            const selectedText = selection.toString().trim();
+            const selectedText = selection ? selection.toString().trim() : '';
+            
+            console.log('翻译文本长度:', selectedText.length);
             
             if (selectedText.length > 0) {
-                // 有选中文本，返回选中的内容
-                sendResponse({
+                safeSendResponse(sendResponse, {
                     success: true,
                     text: selectedText,
                     type: 'selection',
                     source: '选中文本'
                 });
             } else {
-                // 没有选中文本，获取页面主要内容
-                const pageText = this.extractPageContent();
-                sendResponse({
+                // 不再自动获取页面内容，直接返回空文本
+                safeSendResponse(sendResponse, {
                     success: true,
-                    text: pageText,
-                    type: 'page',
-                    source: '整页内容'
+                    text: '',
+                    type: 'empty',
+                    source: '无选中文本'
                 });
             }
         } catch (error) {
-            console.error('获取翻译文本失败:', error);
-            sendResponse({
+            console.error('handleGetTextForTranslation 出错:', error);
+            safeSendResponse(sendResponse, {
                 success: false,
-                error: error.message,
+                error: 'handleGetTextForTranslation 出错: ' + error.message,
                 text: ''
             });
         }
     }
 
-    // 获取页面内容
-    getPageContent(sendResponse) {
-        try {
-            const pageText = this.extractPageContent();
-            sendResponse({
-                success: true,
-                text: pageText,
-                type: 'page'
-            });
-        } catch (error) {
-            console.error('获取页面内容失败:', error);
-            sendResponse({
-                success: false,
-                error: error.message,
-                text: ''
-            });
-        }
-    }
 
-    // 提取页面主要文本内容
-    extractPageContent() {
-        // 尝试多种方法提取页面主要内容
-        let content = '';
-        
-        // 方法1: 尝试获取文章内容
-        const articleSelectors = [
-            'article',
-            '[role="main"]',
-            '.content',
-            '.post-content',
-            '.entry-content',
-            '.article-content',
-            '.main-content',
-            '#content',
-            '#main'
-        ];
-        
-        for (const selector of articleSelectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-                content = this.extractTextFromElement(element);
-                if (content.length > 100) { // 如果内容足够长，就使用这个
-                    break;
-                }
-            }
-        }
-        
-        // 方法2: 如果没有找到合适的内容，尝试获取body中的文本
-        if (content.length < 100) {
-            const bodyElement = document.body;
-            if (bodyElement) {
-                content = this.extractTextFromElement(bodyElement);
-            }
-        }
-        
-        // 方法3: 最后的备选方案，获取页面标题和描述
-        if (content.length < 50) {
-            const title = document.title || '';
-            const metaDescription = this.getMetaDescription();
-            content = [title, metaDescription].filter(text => text.length > 0).join('\n\n');
-        }
-        
-        // 清理和格式化文本
-        content = this.cleanText(content);
-        
-        return content;
-    }
-
-    // 从元素中提取文本
-    extractTextFromElement(element) {
-        try {
-            // 克隆元素以避免修改原始DOM
-            const clonedElement = element.cloneNode(true);
-            
-            // 移除不需要的元素
-            const unwantedSelectors = [
-                'script',
-                'style',
-                'nav',
-                'header',
-                'footer',
-                '.navigation',
-                '.menu',
-                '.sidebar',
-                '.advertisement',
-                '.ads',
-                '.social-share',
-                '.comments',
-                '.related-posts'
-            ];
-            
-            unwantedSelectors.forEach(selector => {
-                const elements = clonedElement.querySelectorAll(selector);
-                elements.forEach(el => el.remove());
-            });
-            
-            // 获取文本内容
-            let text = clonedElement.textContent || clonedElement.innerText || '';
-            
-            return text;
-        } catch (e) {
-            console.error('Error extracting text from element:', e);
-            return '';
-        }
-    }
-
-    // 获取页面描述
-    getMetaDescription() {
-        try {
-            const metaDescription = document.querySelector('meta[name="description"]');
-            return metaDescription ? metaDescription.getAttribute('content') || '' : '';
-        } catch (e) {
-            console.error('Error getting meta description:', e);
-            return '';
-        }
-    }
-
-    // 清理文本
-    cleanText(text) {
-        try {
-            return text
-                // 移除多余的空白字符
-                .replace(/\s+/g, ' ')
-                // 移除行首行尾空白
-                .replace(/^\s+|\s+$/gm, '')
-                // 移除多余的换行
-                .replace(/\n\s*\n\s*\n/g, '\n\n')
-                // 移除特殊字符
-                .replace(/[\u200B-\u200D\uFEFF]/g, '')
-                .trim();
-        } catch (e) {
-            console.error('Error cleaning text:', e);
-            return text;
-        }
-    }
 }
 
-// 初始化Content Manager
-const contentManager = new ContentManager();
+// 安全初始化
+try {
+    console.log('开始安全初始化 Content Script v2.0');
+    
+    // 等待DOM加载完成
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM 加载完成，初始化 ContentManager');
+            new SimpleContentManager();
+        });
+    } else {
+        console.log('DOM 已加载，直接初始化 ContentManager');
+        new SimpleContentManager();
+    }
+    
+    console.log('Content Script v2.0 加载完成');
+} catch (error) {
+    console.error('Content Script v2.0 初始化失败:', error);
+}
 
-console.log('智能翻译助手 Content Script 已加载');
+// 防止重复加载
+if (!window.contentScriptLoaded) {
+    window.contentScriptLoaded = true;
+    console.log('Content Script v2.0 标记为已加载');
+} else {
+    console.warn('Content Script v2.0 重复加载');
+}
