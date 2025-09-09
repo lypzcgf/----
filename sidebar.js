@@ -63,10 +63,15 @@ document.addEventListener('DOMContentLoaded', async function() {
   const originalCharCount = document.getElementById('originalCharCount');
   const rewriteCharCount = document.getElementById('rewriteCharCount');
   
+  // 同步按钮元素
+  const syncTranslationBtn = document.getElementById('syncTranslationBtn');
+  const syncRewriteBtn = document.getElementById('syncRewriteBtn');
+  
   // 飞书多维表格配置相关元素
   const feishuAppId = document.getElementById('feishuAppId');
   const feishuAppSecret = document.getElementById('feishuAppSecret');
   const feishuBitableToken = document.getElementById('feishuBitableToken');
+  const feishuTableId = document.getElementById('feishuTableId');
   const saveFeishuConfigBtn = document.getElementById('saveFeishuConfig');
   const testFeishuConnectionBtn = document.getElementById('testFeishuConnection');
   const feishuStatus = document.getElementById('feishuStatus');
@@ -808,6 +813,112 @@ document.addEventListener('DOMContentLoaded', async function() {
     originalText.style.color = '#999';
   });
   
+  // 同步翻译结果到飞书多维表格
+  syncTranslationBtn.addEventListener('click', async function() {
+    syncTranslationBtn.textContent = '🔄 同步中...';
+    syncTranslationBtn.disabled = true;
+    
+    try {
+      // 获取当前页面信息
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tabInfo = await chrome.tabs.get(tab.id);
+      
+      // 获取翻译相关信息
+      const sourceLang = sourceLangSelect.value;
+      const targetLang = targetLangSelect.value;
+      const selectedModel = modelSelect.value;
+      
+      // 获取检测到的语言（如果有的话）
+      let actualSourceLang = sourceLang;
+      if (window.currentTranslationResult && window.currentTranslationResult.detectedLanguage) {
+        actualSourceLang = window.currentTranslationResult.detectedLanguage;
+      }
+      
+      // 构造同步数据
+      const syncData = {
+        action: 'syncToFeishu',
+        type: 'translation',
+        originalText: originalText.textContent,
+        resultText: (window.currentTranslationResult && window.currentTranslationResult.text) || translationResult.textContent,
+        sourceLang: actualSourceLang,
+        targetLang: targetLang,
+        model: selectedModel,
+        url: tabInfo.url,
+        title: tabInfo.title,
+        timestamp: new Date().toISOString()
+      };
+      
+      // 发送到background script处理
+      const response = await chrome.runtime.sendMessage(syncData);
+      
+      if (response && response.success) {
+        syncTranslationBtn.textContent = '✅ 同步成功';
+        setTimeout(() => {
+          syncTranslationBtn.textContent = '📤 同步翻译结果';
+          syncTranslationBtn.disabled = false;
+        }, 2000);
+      } else {
+        throw new Error(response?.error || '同步失败');
+      }
+    } catch (error) {
+      console.error('同步翻译结果失败:', error);
+      syncTranslationBtn.textContent = '❌ 同步失败';
+      setTimeout(() => {
+        syncTranslationBtn.textContent = '📤 同步翻译结果';
+        syncTranslationBtn.disabled = false;
+      }, 2000);
+    }
+  });
+  
+  // 同步改写结果到飞书多维表格
+  syncRewriteBtn.addEventListener('click', async function() {
+    syncRewriteBtn.textContent = '🔄 同步中...';
+    syncRewriteBtn.disabled = true;
+    
+    try {
+      // 获取当前页面信息
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tabInfo = await chrome.tabs.get(tab.id);
+      
+      // 获取改写相关信息
+      const selectedModel = modelSelect.value;
+      const prompt = rewritePrompt.value;
+      
+      // 构造同步数据
+      const syncData = {
+        action: 'syncToFeishu',
+        type: 'rewrite',
+        originalText: originalText.textContent,
+        resultText: rewriteResult.textContent,
+        prompt: prompt,
+        model: selectedModel,
+        url: tabInfo.url,
+        title: tabInfo.title,
+        timestamp: new Date().toISOString()
+      };
+      
+      // 发送到background script处理
+      const response = await chrome.runtime.sendMessage(syncData);
+      
+      if (response && response.success) {
+        syncRewriteBtn.textContent = '✅ 同步成功';
+        setTimeout(() => {
+          syncRewriteBtn.textContent = '📤 同步改写结果';
+          syncRewriteBtn.disabled = false;
+        }, 2000);
+      } else {
+        throw new Error(response?.error || '同步失败');
+      }
+    } catch (error) {
+      console.error('同步改写结果失败:', error);
+      syncRewriteBtn.textContent = '❌ 同步失败';
+      setTimeout(() => {
+        syncRewriteBtn.textContent = '📤 同步改写结果';
+        syncRewriteBtn.disabled = false;
+      }, 2000);
+    }
+  });
+  
   // 显示翻译结果
   function displayTranslationResult(result) {
     resetTranslateButton();
@@ -819,11 +930,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         errorMessage = '请求过于频繁，请稍后再试（API速率限制）';
       }
       translationResult.textContent = `翻译失败: ${errorMessage}`;
+      syncTranslationBtn.style.display = 'none';
       return;
     }
     
     // 显示翻译结果
     translationResult.textContent = result.text || '无翻译结果';
+    
+    // 显示同步按钮
+    syncTranslationBtn.style.display = 'inline-block';
+    
+    // 保存翻译结果和检测到的语言信息，供同步使用
+    window.currentTranslationResult = {
+      text: result.text || '无翻译结果',
+      detectedLanguage: result.detectedLanguage || sourceLangSelect.value
+    };
     
     // 更新统计信息
     translationTimeEl.textContent = result.translationTime ? `${result.translationTime}秒` : '-';
@@ -837,11 +958,15 @@ document.addEventListener('DOMContentLoaded', async function() {
   function displayRewriteResult(result) {
     if (result.error) {
       rewriteResult.textContent = `改写失败: ${result.error}`;
+      syncRewriteBtn.style.display = 'none';
       return;
     }
     
     // 显示改写结果
     rewriteResult.textContent = result.text || '无改写结果';
+    
+    // 显示同步按钮
+    syncRewriteBtn.style.display = 'inline-block';
     
     // 更新统计信息
     rewriteTime.textContent = result.rewriteTime ? `${result.rewriteTime}秒` : '-';
@@ -875,7 +1000,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const config = {
       appId: feishuAppId.value.trim(),
       appSecret: feishuAppSecret.value.trim(),
-      bitableToken: feishuBitableToken.value.trim()
+      bitableToken: feishuBitableToken.value.trim(),
+      tableId: feishuTableId.value.trim()
     };
     
     try {
@@ -980,13 +1106,15 @@ async function loadFeishuConfig() {
       enabled: false,
       appId: '',
       appSecret: '',
-      bitableToken: ''
+      bitableToken: '',
+      tableId: ''
     };
     
 
     document.getElementById('feishuAppId').value = config.appId || '';
     document.getElementById('feishuAppSecret').value = config.appSecret || '';
     document.getElementById('feishuBitableToken').value = config.bitableToken || '';
+    document.getElementById('feishuTableId').value = config.tableId || '';
   } catch (error) {
     console.error('加载飞书配置失败:', error);
   }

@@ -77,6 +77,11 @@ class BackgroundManager {
                     .then(config => sendResponse({ success: true, config }))
                     .catch(error => sendResponse({ success: false, message: error.message }));
                 return true;
+            case 'syncToFeishu':
+                this.syncToFeishu(request)
+                    .then(result => sendResponse({ success: true, data: result }))
+                    .catch(error => sendResponse({ success: false, error: error.message }));
+                return true;
             default:
                 return false; // 不处理未知消息
         }
@@ -546,6 +551,9 @@ class BackgroundManager {
                 ]
             };
             
+            // 添加语言检测参数
+            let detectedLanguage = sourceLang; // 默认使用选择的语言
+            
             // Qwen模型需要额外的参数
             if (model === 'qwen') {
                 requestBody.input = {
@@ -557,8 +565,16 @@ class BackgroundManager {
                     ]
                 };
                 requestBody.parameters = {
-                    result_format: 'text'
+                    result_format: 'message'
                 };
+                
+                // 如果是自动检测，添加语言检测参数
+                if (sourceLang === 'auto') {
+                    requestBody.parameters = {
+                        result_format: 'message',
+                        language_detection: true
+                    };
+                }
                 // 保留顶层messages字段，确保API能正确识别参数
             }
             
@@ -588,8 +604,16 @@ class BackgroundManager {
                 console.log('Qwen API response:', result);
                 if (result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content) {
                     translatedText = result.choices[0].message.content.trim();
+                    
+                    // 尝试获取检测到的语言（如果有的话）
+                    if (sourceLang === 'auto' && result.choices[0].message.role === 'assistant' && result.choices[0].message.content) {
+                        // Qwen API在某些情况下会在响应中包含检测到的语言信息
+                        // 这里我们暂时使用默认值，实际应用中可能需要更复杂的处理
+                        detectedLanguage = '自动检测';
+                    }
                 } else if (result.output && result.output.text) {
                     translatedText = result.output.text.trim();
+                    detectedLanguage = '自动检测';
                 } else {
                     throw new Error('Qwen API返回格式不正确');
                 }
@@ -613,7 +637,8 @@ class BackgroundManager {
                 characterCount: characterCount,
                 wordCount: wordCount,
                 paragraphCount: paragraphCount,
-                lineCount: lineCount
+                lineCount: lineCount,
+                detectedLanguage: detectedLanguage // 添加检测到的语言信息
             };
         } catch (error) {
             throw new Error(`翻译失败: ${error.message}`);
@@ -669,6 +694,98 @@ class BackgroundManager {
             };
         } catch (error) {
             console.error('飞书连接测试失败:', error);
+            throw error;
+        }
+    }
+    
+    // 同步数据到飞书多维表格
+    async syncToFeishu(request) {
+        try {
+            // 获取飞书配置
+            const result = await chrome.storage.local.get(['feishuConfig']);
+            const config = result.feishuConfig;
+            
+            // 验证配置完整性
+            if (!config || !config.appId || !config.appSecret || !config.bitableToken || !config.tableId) {
+                throw new Error('飞书配置不完整，请先在配置页面配置飞书参数');
+            }
+            
+            // 获取访问令牌
+            const tokenResponse = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    app_id: config.appId,
+                    app_secret: config.appSecret
+                })
+            });
+            
+            const tokenData = await tokenResponse.json();
+            
+            if (tokenData.code !== 0) {
+                throw new Error(`获取访问令牌失败: ${tokenData.msg}`);
+            }
+            
+            const accessToken = tokenData.tenant_access_token;
+            
+            // 格式化时间显示
+            const formatDate = (dateString) => {
+                const date = new Date(dateString);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            };
+            
+            // 构造飞书记录数据
+            const recordData = {
+                fields: {
+                    '原文内容': request.originalText,
+                    '操作类型': request.type === 'translation' ? '翻译' : '改写',
+                    '操作时间': formatDate(request.timestamp),
+                    '使用模型': request.model,
+                    '页面URL': request.url,
+                    '页面标题': request.title,
+                    '同步时间': formatDate(new Date().toISOString()),
+                    '最后修改时间': formatDate(new Date().toISOString())
+                }
+            };
+            
+            // 根据操作类型添加特有字段
+            if (request.type === 'translation') {
+                recordData.fields['翻译结果'] = request.resultText;
+                recordData.fields['源语言'] = request.sourceLang;
+                recordData.fields['目标语言'] = request.targetLang;
+            } else if (request.type === 'rewrite') {
+                recordData.fields['改写结果'] = request.resultText;
+                recordData.fields['改写提示词'] = request.prompt;
+            }
+            
+            // 发送到飞书多维表格
+            const response = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${config.bitableToken}/tables/${config.tableId}/records`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(recordData)
+            });
+            
+            const responseData = await response.json();
+            
+            if (response.ok && responseData.code === 0) {
+                console.log('数据同步成功:', responseData);
+                return { success: true, data: responseData.data };
+            } else {
+                throw new Error(`同步失败: ${responseData.msg || '未知错误'}`);
+            }
+        } catch (error) {
+            console.error('同步到飞书失败:', error);
             throw error;
         }
     }
